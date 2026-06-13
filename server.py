@@ -16,14 +16,17 @@ DEPLOY:
 =============================================================================
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from resume_pipeline import run_pipeline
 import traceback
 import json
 import re
+import uuid
 
-app = Flask(__name__)
+resume_store = {}
+
+app = Flask(__name__, static_folder="templates")
 CORS(app)
 
 @app.route("/health", methods=["GET"])
@@ -41,32 +44,23 @@ def generate_resume():
             if field not in payload:
                 return jsonify({"success": False, "error": f"Missing required field: '{field}'"}), 400
         result = run_pipeline(payload)
+        resume_id = str(uuid.uuid4())[:8]
+        resume_store[resume_id] = result.get("html", "")
+        result["resume_id"] = resume_id
         return jsonify(result), 200
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route("/render-html", methods=["POST"])
-def render_html():
-    from resume_renderer import render_resume_html
-    try:
-        raw_data = request.get_data(as_text=True)
-        raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', raw_data)
-        body = json.loads(raw_data)
-        resume_data = body.get("resume_data")
-        if isinstance(resume_data, str):
-            try:
-                resume_data = json.loads(resume_data)
-            except:
-                pass
-        page_target = body.get("page_target", 2)
-        if not resume_data:
-            return jsonify({"success": False, "error": "resume_data is required"}), 400
-        html = render_resume_html(resume_data, page_target)
-        return jsonify({"success": True, "html": html}), 200
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "error": str(e)}), 500
+@app.route("/get-resume", methods=["GET"])
+def get_resume():
+    resume_id = request.args.get("id", "")
+    html = resume_store.get(resume_id, "<p>Resume not found or expired</p>")
+    return jsonify({"success": True, "html": html}), 200
+
+@app.route("/resume", methods=["GET"])
+def show_resume():
+    return send_from_directory("templates", "results.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=False)
