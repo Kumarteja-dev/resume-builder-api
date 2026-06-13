@@ -70,7 +70,7 @@ RESUME_HTML_TEMPLATE = """<!DOCTYPE html>
     position: relative; padding-left: 12pt; margin-bottom: 1.8pt;
     font-size: 10.5pt; line-height: 1.32; text-align: justify;
   }
-  .bullets li::before { content: "-"; position: absolute; left: 0; top: 0; }
+  .bullets li::before { content: "•"; position: absolute; left: 0; top: 0; }
   .summary-text {
     font-size: 10.5pt; line-height: 1.45;
     text-align: justify; margin-top: 1pt;
