@@ -833,6 +833,23 @@ def run_pipeline(payload: dict) -> dict:
         print(f"[PIPELINE] Step 3 failed ({e}). Using Step 2 output.")
         final_data = extract_json(s2_output)
 
+    # Sanitize bullets — collapse any internal line breaks
+    for job in final_data.get("experience", []):
+        cleaned = []
+        for bullet in job.get("bullets", []):
+            bullet = " ".join(bullet.split())
+            if bullet:
+                cleaned.append(bullet)
+        job["bullets"] = cleaned
+
+    for project in final_data.get("projects", []):
+        cleaned = []
+        for bullet in project.get("bullets", []):
+            bullet = " ".join(bullet.split())
+            if bullet:
+                cleaned.append(bullet)
+        project["bullets"] = cleaned
+
     years_exp = payload.get("years_experience", 4)
     page_target = 3 if years_exp >= 8 else 2
 
