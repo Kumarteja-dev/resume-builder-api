@@ -550,11 +550,9 @@ def run_pipeline(payload: dict) -> dict:
     s1_output = step1_specialist_writer(payload)
     print(f"[PIPELINE] Step 1 complete. Output length: {len(s1_output)} chars")
 
-    # ── Step 2 ──────────────────────────────────────────────────────────────
-    print("[PIPELINE] Step 2: FAANG Critic...")
-    s2_output = step2_faang_critic(s1_output, payload)
-    print(f"[PIPELINE] Step 2 complete. Output length: {len(s2_output)} chars")
-
+    # ── Step 2 SKIPPED for speed ─────────────────────────────────────────────
+    print("[PIPELINE] Skipping Step 2 for speed...")
+    s2_output = s1_output
     # ── Step 3 ──────────────────────────────────────────────────────────────
     print("[PIPELINE] Step 3: ATS Guard & Proofreader...")
     final_data = step3_ats_guard(s2_output, payload)
