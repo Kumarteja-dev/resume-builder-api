@@ -446,7 +446,8 @@ def step1_specialist_writer(payload: dict) -> str:
         employment = payload.get("employment", [])
         num_jobs = len(employment) if employment else 1
         calculated_years = calculate_years_from_jobs(employment)
-        years_exp = max(years_exp, calculated_years)
+        if calculated_years is not None:
+            years_exp = max(years_exp, calculated_years)
     else:
         num_jobs = 3
         employment = []
