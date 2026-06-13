@@ -160,18 +160,32 @@ def detect_sector(text: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def calculate_years_from_jobs(employment: list) -> int:
+    """
+    Estimates total years of experience from employment history.
+
+    Only considers this a reliable signal when there's a CURRENT role
+    (end_date is "present"/blank) - in that case, tenure-to-today is
+    a meaningful floor. For past/ended roles, we can't infer total
+    career length from a single entry (the person may have other jobs
+    not listed), so we return None to signal "not reliable".
+    """
     if not employment:
-        return 4
+        return None
 
     month_map = {
         "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
         "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
     }
 
-    earliest_start = None
     now = datetime.now()
+    earliest_start = None
+    has_current_role = False
 
     for job in employment:
+        end_str = job.get("end_date", "").strip().lower()
+        if end_str in ("present", "current", "now", ""):
+            has_current_role = True
+
         try:
             start_str = job.get("start_date", "").strip().lower()
             parts = start_str.replace(",", "").split()
@@ -184,8 +198,8 @@ def calculate_years_from_jobs(employment: list) -> int:
         except Exception:
             continue
 
-    if earliest_start is None:
-        return 4
+    if earliest_start is None or not has_current_role:
+        return None
 
     years = (now - earliest_start).days / 365.25
     return max(1, int(years))
@@ -817,7 +831,15 @@ def run_pipeline(payload: dict) -> dict:
         if employment:
             calculated = calculate_years_from_jobs(employment)
             provided = payload.get("years_experience", 4)
-            payload["years_experience"] = max(provided, calculated)
+            if calculated is not None:
+                # Only raise the provided value if there's a current role
+                # whose tenure exceeds what the user stated.
+                payload["years_experience"] = max(provided, calculated)
+            else:
+                # Trust the user-provided value - employment history
+                # doesn't give a reliable total (e.g. only past roles
+                # entered, possibly incomplete history).
+                payload["years_experience"] = provided
             print(f"[PIPELINE] Years: provided={provided}, "
                   f"calculated={calculated}, "
                   f"using={payload['years_experience']}")
