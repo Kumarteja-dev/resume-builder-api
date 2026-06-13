@@ -9,8 +9,9 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                  Helvetica, Arial, sans-serif;
-    background: #f4f4f2;
+    background: #f6f5f3;
     min-height: 100vh;
+    color: #2c2c2a;
   }
 
   /* ===================== LOADING SCREEN ===================== */
@@ -20,156 +21,209 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    padding: 2rem;
-    text-align: center;
+    padding: 2rem 1.5rem;
   }
   .loading-card {
     background: #ffffff;
-    border-radius: 16px;
-    padding: 3rem 2.5rem;
-    max-width: 440px;
+    border-radius: 20px;
+    padding: 3rem 2.75rem;
+    max-width: 460px;
     width: 100%;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    box-shadow: 0 8px 40px rgba(40, 38, 32, 0.06);
+    border: 1px solid #efeeec;
+  }
+  .badge-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1edff;
+    color: #5b4fc4;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+  }
+  .spinner-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
   }
   .spinner {
-    width: 56px;
-    height: 56px;
-    border: 4px solid #e6e6e3;
-    border-top-color: #2C2C2A;
+    width: 52px;
+    height: 52px;
+    border: 3px solid #ece9e4;
+    border-top-color: #2c2c2a;
     border-radius: 50%;
-    margin: 0 auto 1.75rem;
-    animation: spin 0.9s linear infinite;
+    animation: spin 0.9s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
   }
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
   .loading-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: #2C2C2A;
-    margin-bottom: 8px;
+    font-size: 21px;
+    font-weight: 700;
+    color: #2c2c2a;
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
   }
-  .loading-step {
-    font-size: 14px;
-    color: #6b6b68;
-    margin-bottom: 24px;
-    min-height: 20px;
-    transition: opacity 0.3s;
+  .loading-sub {
+    font-size: 13.5px;
+    color: #8c8a85;
+    text-align: center;
+    margin-bottom: 1.75rem;
+    line-height: 1.5;
   }
+
   .progress-track {
     width: 100%;
     height: 6px;
     background: #ece9e4;
-    border-radius: 4px;
+    border-radius: 6px;
     overflow: hidden;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    position: relative;
   }
   .progress-fill {
     height: 100%;
-    background: #2C2C2A;
-    border-radius: 4px;
+    background: linear-gradient(90deg, #2c2c2a, #534ab7);
+    border-radius: 6px;
     width: 8%;
-    transition: width 1.2s ease;
+    transition: width 1.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .progress-pct {
-    font-size: 12px;
-    color: #9c9a96;
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    color: #b3b1ac;
+    margin-bottom: 2rem;
+    font-weight: 500;
   }
+
   .step-list {
-    margin-top: 1.75rem;
-    text-align: left;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
   }
   .step-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    color: #9c9a96;
-    transition: color 0.3s;
+    gap: 12px;
+    font-size: 13.5px;
+    color: #c2c0bb;
+    transition: color 0.4s ease;
   }
-  .step-item.active { color: #2C2C2A; font-weight: 500; }
-  .step-item.complete { color: #2C2C2A; }
-  .step-dot {
-    width: 18px;
-    height: 18px;
+  .step-item.active {
+    color: #2c2c2a;
+    font-weight: 600;
+  }
+  .step-item.complete {
+    color: #8c8a85;
+    font-weight: 500;
+  }
+  .step-icon {
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     border: 2px solid #ece9e4;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    transition: all 0.3s;
+    transition: all 0.4s ease;
+    position: relative;
   }
-  .step-item.active .step-dot {
-    border-color: #2C2C2A;
-    background: #2C2C2A;
-    animation: pulse 1.2s ease-in-out infinite;
+  .step-item.active .step-icon {
+    border-color: #2c2c2a;
   }
-  .step-item.complete .step-dot {
-    border-color: #2C2C2A;
-    background: #2C2C2A;
-    color: #fff;
+  .step-item.active .step-icon::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2c2c2a;
+    animation: pulse-dot 1.1s ease-in-out infinite;
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
   }
+  .step-item.complete .step-icon {
+    border-color: #2c2c2a;
+    background: #2c2c2a;
+  }
+  .step-item.complete .step-icon svg {
+    width: 12px;
+    height: 12px;
+  }
+  .step-item.complete .step-icon svg path {
+    stroke: #ffffff;
+  }
+
   .loading-hint {
-    margin-top: 1.5rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #f1efec;
     font-size: 12px;
     color: #b3b1ac;
+    text-align: center;
     line-height: 1.6;
   }
 
   /* ===================== ERROR SCREEN ===================== */
   .error-card {
     background: #ffffff;
-    border-radius: 16px;
-    padding: 2.5rem;
-    max-width: 480px;
+    border-radius: 20px;
+    padding: 2.75rem 2.5rem;
+    max-width: 460px;
     width: 100%;
     text-align: center;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    box-shadow: 0 8px 40px rgba(40, 38, 32, 0.06);
+    border: 1px solid #efeeec;
   }
   .error-icon {
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    background: #fce8e6;
+    background: #fbeaea;
     color: #c5453a;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 24px;
     font-weight: 700;
-    margin: 0 auto 1rem;
+    margin: 0 auto 1.25rem;
   }
   .error-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #2C2C2A;
+    font-size: 19px;
+    font-weight: 700;
+    color: #2c2c2a;
     margin-bottom: 8px;
   }
   .error-message {
-    font-size: 14px;
-    color: #6b6b68;
+    font-size: 13.5px;
+    color: #8c8a85;
     line-height: 1.6;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
   }
   .retry-btn {
-    background: #2C2C2A;
+    background: #2c2c2a;
     color: #fff;
     border: none;
-    border-radius: 8px;
-    padding: 12px 24px;
+    border-radius: 10px;
+    padding: 12px 28px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    transition: background 0.15s;
   }
   .retry-btn:hover { background: #444441; }
 
@@ -180,32 +234,39 @@
   .resume-toolbar {
     position: sticky;
     top: 0;
-    background: #ffffff;
-    border-bottom: 1px solid #e6e6e3;
-    padding: 12px 24px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #ece9e4;
+    padding: 14px 24px;
     display: flex;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
     z-index: 10;
   }
   .toolbar-btn {
-    background: #2C2C2A;
+    background: #2c2c2a;
     color: #fff;
     border: none;
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-weight: 500;
+    border-radius: 10px;
+    padding: 11px 22px;
+    font-size: 13.5px;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s, transform 0.1s;
   }
   .toolbar-btn:hover { background: #444441; }
+  .toolbar-btn:active { transform: scale(0.98); }
   .toolbar-btn.secondary {
     background: transparent;
-    color: #2C2C2A;
+    color: #2c2c2a;
     border: 1px solid #d6d4cf;
   }
-  .toolbar-btn.secondary:hover { background: #f4f4f2; }
+  .toolbar-btn.secondary:hover { background: #f6f5f3; }
+  .toolbar-btn svg { width: 15px; height: 15px; }
 
   @media print {
     .resume-toolbar { display: none; }
@@ -216,26 +277,34 @@
 
 <div id="loading-screen" class="loading-wrap">
   <div class="loading-card">
-    <div class="spinner"></div>
+    <div class="badge-row">
+      <span class="badge">AI Resume Pipeline</span>
+    </div>
+    <div class="spinner-wrap">
+      <div class="spinner"></div>
+    </div>
     <div class="loading-title">Building your elite resume</div>
-    <div class="loading-step" id="loading-step-text">Starting up...</div>
+    <div class="loading-sub">Three specialist AI passes are crafting and refining your resume for maximum impact.</div>
 
     <div class="progress-track">
       <div class="progress-fill" id="progress-fill"></div>
     </div>
-    <div class="progress-pct" id="progress-pct">8%</div>
+    <div class="progress-meta">
+      <span id="progress-pct">8%</span>
+      <span>Estimated 60-90 seconds</span>
+    </div>
 
     <div class="step-list">
       <div class="step-item active" id="step-1">
-        <span class="step-dot"></span>
+        <span class="step-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span>Specialist writer drafting your resume</span>
       </div>
       <div class="step-item" id="step-2">
-        <span class="step-dot"></span>
+        <span class="step-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span>FAANG critic sharpening every bullet</span>
       </div>
       <div class="step-item" id="step-3">
-        <span class="step-dot"></span>
+        <span class="step-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span>ATS guard finalizing formatting</span>
       </div>
     </div>
@@ -259,7 +328,10 @@
 
 <div id="resume-container">
   <div class="resume-toolbar">
-    <button class="toolbar-btn" onclick="window.print()">Download / Print PDF</button>
+    <button class="toolbar-btn" id="download-btn">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Download as Word
+    </button>
     <button class="toolbar-btn secondary" onclick="window.location.href='/'">Back to home</button>
   </div>
   <div id="resume-html"></div>
@@ -272,14 +344,13 @@ const resumeId = params.get('id');
 const loadingScreen = document.getElementById('loading-screen');
 const errorScreen = document.getElementById('error-screen');
 const resumeContainer = document.getElementById('resume-container');
-const stepText = document.getElementById('loading-step-text');
 const progressFill = document.getElementById('progress-fill');
 const progressPct = document.getElementById('progress-pct');
 
 const steps = [
-  { el: document.getElementById('step-1'), text: 'Specialist writer drafting your resume', pct: 15 },
-  { el: document.getElementById('step-2'), text: 'FAANG critic sharpening every bullet', pct: 50 },
-  { el: document.getElementById('step-3'), text: 'ATS guard finalizing formatting', pct: 85 }
+  { el: document.getElementById('step-1'), pct: 15 },
+  { el: document.getElementById('step-2'), pct: 50 },
+  { el: document.getElementById('step-3'), pct: 85 }
 ];
 
 let currentStep = 0;
@@ -291,10 +362,8 @@ function advanceStep() {
     if (currentStep > 0) {
       steps[currentStep - 1].el.classList.remove('active');
       steps[currentStep - 1].el.classList.add('complete');
-      steps[currentStep - 1].el.querySelector('.step-dot').textContent = '\\u2713';
     }
     steps[currentStep].el.classList.add('active');
-    stepText.textContent = steps[currentStep].text;
     progressFill.style.width = steps[currentStep].pct + '%';
     progressPct.textContent = steps[currentStep].pct + '%';
     currentStep++;
@@ -311,11 +380,9 @@ function showError(message) {
 
 function showResume(html) {
   clearInterval(stepInterval);
-  // Mark all steps complete
   steps.forEach(s => {
     s.el.classList.remove('active');
     s.el.classList.add('complete');
-    s.el.querySelector('.step-dot').textContent = '\\u2713';
   });
   progressFill.style.width = '100%';
   progressPct.textContent = '100%';
@@ -324,14 +391,16 @@ function showResume(html) {
     loadingScreen.style.display = 'none';
     resumeContainer.style.display = 'block';
     document.getElementById('resume-html').innerHTML = html;
-  }, 400);
+  }, 500);
 }
 
 if (!resumeId) {
   showError('No resume ID provided. Please generate a resume first.');
 } else {
-  // Advance through steps visually every ~20 seconds
-  // (real progress is determined by polling below)
+  document.getElementById('download-btn').addEventListener('click', function() {
+    window.location.href = '/download-docx?id=' + encodeURIComponent(resumeId);
+  });
+
   advanceStep();
   stepInterval = setInterval(() => {
     if (currentStep < steps.length) advanceStep();
@@ -349,9 +418,7 @@ if (!resumeId) {
         } else if (data.status === 'not_found') {
           showError('Resume not found or expired. Please generate a new one.');
         } else {
-          // still pending
           if (pollCount > 60) {
-            // ~3 minutes of polling at 3s intervals
             showError('This is taking longer than expected. Please try again.');
           } else {
             setTimeout(poll, 3000);
