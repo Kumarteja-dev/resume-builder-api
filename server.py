@@ -54,6 +54,11 @@ def render_html():
         raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', raw_data)
         body = json.loads(raw_data)
         resume_data = body.get("resume_data")
+        if isinstance(resume_data, str):
+            try:
+                resume_data = json.loads(resume_data)
+            except:
+                pass
         page_target = body.get("page_target", 2)
         if not resume_data:
             return jsonify({"success": False, "error": "resume_data is required"}), 400
