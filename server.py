@@ -43,6 +43,7 @@ def generate_resume():
         raw_data = request.get_data(as_text=True)
         import re
         raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw_data)
+        raw_data = raw_data.replace('\r\n', '\\n').replace('\r', '\\n').replace('\n', '\\n').replace('\t', '\\t')
         payload = json.loads(raw_data)
 
         # ── Basic validation ────────────────────────────────────────────
