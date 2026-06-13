@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Your Resume</title>
+</head>
+<body>
+<div id="resume">Loading your resume...</div>
+<script>
+var id = new URLSearchParams(window.location.search).get('id');
+fetch('/get-resume?id=' + id)
+  .then(r => r.json())
+  .then(d => { document.getElementById('resume').innerHTML = d.html; });
+</script>
+</body>
+</html>
