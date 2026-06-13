@@ -10,6 +10,7 @@ import traceback
 import json
 import re
 import uuid
+import threading
 
 resume_store = {}
 
@@ -163,6 +164,91 @@ def reconstruct_scratch_payload(payload):
     return payload
 
 
+def parse_and_prepare_payload(raw_data: str) -> dict:
+    """
+    Shared payload preparation logic: cleaning, sanitizing,
+    type conversion, and workflow reconstruction.
+    Raises json.JSONDecodeError or ValueError on bad input.
+    """
+    # Deep clean BEFORE JSON parsing — this is critical
+    raw_data = deep_clean_raw(raw_data)
+
+    # Parse JSON
+    try:
+        payload = json.loads(raw_data)
+    except json.JSONDecodeError:
+        # If still failing, try a more aggressive clean
+        raw_data = raw_data.encode('ascii', errors='ignore').decode('ascii')
+        payload = json.loads(raw_data)
+
+    # Sanitize all string values after parsing
+    payload = sanitize_payload(payload)
+
+    # Convert years_experience to int safely
+    if "years_experience" in payload:
+        try:
+            payload["years_experience"] = int(
+                float(str(payload["years_experience"]))
+            )
+        except (ValueError, TypeError):
+            payload["years_experience"] = 4
+
+    # Convert include_projects to bool
+    if "include_projects" in payload:
+        val = payload["include_projects"]
+        if isinstance(val, str):
+            payload["include_projects"] = val.lower() in (
+                "true", "1", "yes"
+            )
+        elif not isinstance(val, bool):
+            payload["include_projects"] = bool(val)
+
+    # Auto-detect workflow if missing
+    if "workflow" not in payload or not payload["workflow"]:
+        if payload.get("existing_resume_text", "").strip():
+            payload["workflow"] = "tailor"
+        else:
+            payload["workflow"] = "scratch"
+
+    # For scratch workflow, reconstruct nested structures
+    if payload.get("workflow") == "scratch":
+        payload = reconstruct_scratch_payload(payload)
+
+    # Validate required fields
+    required_fields = ["company_target", "years_experience",
+                       "job_description"]
+    for field in required_fields:
+        if field not in payload:
+            raise ValueError(f"Missing required field: '{field}'")
+
+    return payload
+
+
+def run_pipeline_in_background(job_id: str, payload: dict):
+    """
+    Runs the full 3-step pipeline in a background thread and
+    stores the result (or error) in resume_store under job_id.
+    """
+    try:
+        result = run_pipeline(payload)
+        resume_store[job_id] = {
+            "status": "done",
+            "html": result.get("html", ""),
+            "resume_data": result.get("resume_data", {}),
+            "page_target": result.get("page_target", 2),
+            "company_target": result.get("company_target", "GENERAL"),
+            "debug": result.get("debug", {})
+        }
+        print(f"[ASYNC] Job {job_id} completed successfully.")
+    except Exception as e:
+        traceback.print_exc()
+        resume_store[job_id] = {
+            "status": "error",
+            "error": str(e)
+        }
+        print(f"[ASYNC] Job {job_id} failed: {e}")
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "Elite Resume Builder API"})
@@ -170,70 +256,26 @@ def health():
 
 @app.route("/generate-resume", methods=["POST"])
 def generate_resume():
+    """
+    LEGACY SYNCHRONOUS ENDPOINT — kept for backward compatibility.
+    Runs the full pipeline and waits for completion before responding.
+    Prefer /start-resume for new integrations to avoid timeouts.
+    """
     try:
-        # Get raw data
         raw_data = request.get_data(as_text=True)
+        payload = parse_and_prepare_payload(raw_data)
 
-        # Deep clean BEFORE JSON parsing — this is critical
-        raw_data = deep_clean_raw(raw_data)
-
-        # Parse JSON
-        try:
-            payload = json.loads(raw_data)
-        except json.JSONDecodeError as e:
-            # If still failing, try a more aggressive clean
-            raw_data = raw_data.encode('ascii', errors='ignore').decode('ascii')
-            payload = json.loads(raw_data)
-
-        # Sanitize all string values after parsing
-        payload = sanitize_payload(payload)
-
-        # Convert years_experience to int safely
-        if "years_experience" in payload:
-            try:
-                payload["years_experience"] = int(
-                    float(str(payload["years_experience"]))
-                )
-            except (ValueError, TypeError):
-                payload["years_experience"] = 4
-
-        # Convert include_projects to bool
-        if "include_projects" in payload:
-            val = payload["include_projects"]
-            if isinstance(val, str):
-                payload["include_projects"] = val.lower() in (
-                    "true", "1", "yes"
-                )
-            elif not isinstance(val, bool):
-                payload["include_projects"] = bool(val)
-
-        # Auto-detect workflow if missing
-        if "workflow" not in payload or not payload["workflow"]:
-            if payload.get("existing_resume_text", "").strip():
-                payload["workflow"] = "tailor"
-            else:
-                payload["workflow"] = "scratch"
-
-        # For scratch workflow, reconstruct nested structures
-        if payload.get("workflow") == "scratch":
-            payload = reconstruct_scratch_payload(payload)
-
-        # Validate required fields
-        required_fields = ["company_target", "years_experience",
-                           "job_description"]
-        for field in required_fields:
-            if field not in payload:
-                return jsonify({
-                    "success": False,
-                    "error": f"Missing required field: '{field}'"
-                }), 400
-
-        # Run the pipeline
         result = run_pipeline(payload)
 
-        # Store and return
         resume_id = str(uuid.uuid4())[:8]
-        resume_store[resume_id] = result.get("html", "")
+        resume_store[resume_id] = {
+            "status": "done",
+            "html": result.get("html", ""),
+            "resume_data": result.get("resume_data", {}),
+            "page_target": result.get("page_target", 2),
+            "company_target": result.get("company_target", "GENERAL"),
+            "debug": result.get("debug", {})
+        }
         result["resume_id"] = resume_id
 
         return jsonify(result), 200
@@ -245,18 +287,124 @@ def generate_resume():
                      f"characters in your resume or job description: {str(e)}"
         }), 400
 
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/start-resume", methods=["POST"])
+def start_resume():
+    """
+    ASYNC ENDPOINT — returns immediately with a job_id.
+    The pipeline runs in a background thread.
+    Poll /check-status?id=<job_id> for progress and final result.
+    """
+    try:
+        raw_data = request.get_data(as_text=True)
+        payload = parse_and_prepare_payload(raw_data)
+
+        job_id = str(uuid.uuid4())[:8]
+        resume_store[job_id] = {"status": "pending"}
+
+        thread = threading.Thread(
+            target=run_pipeline_in_background,
+            args=(job_id, payload),
+            daemon=True
+        )
+        thread.start()
+
+        print(f"[ASYNC] Job {job_id} started in background.")
+
+        return jsonify({
+            "success": True,
+            "resume_id": job_id,
+            "status": "pending"
+        }), 202
+
+    except json.JSONDecodeError as e:
+        return jsonify({
+            "success": False,
+            "error": f"Could not parse request. Please avoid special "
+                     f"characters in your resume or job description: {str(e)}"
+        }), 400
+
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/check-status", methods=["GET"])
+def check_status():
+    """
+    Poll this endpoint with ?id=<job_id> to check pipeline progress.
+    Returns status: pending | done | error
+    """
+    job_id = request.args.get("id", "")
+    entry = resume_store.get(job_id)
+
+    if entry is None:
+        return jsonify({
+            "success": False,
+            "status": "not_found",
+            "error": "Resume ID not found or expired."
+        }), 404
+
+    status = entry.get("status", "pending")
+
+    if status == "pending":
+        return jsonify({"success": True, "status": "pending"}), 200
+
+    elif status == "error":
+        return jsonify({
+            "success": False,
+            "status": "error",
+            "error": entry.get("error", "Unknown error")
+        }), 200
+
+    else:  # done
+        return jsonify({
+            "success": True,
+            "status": "done",
+            "html": entry.get("html", ""),
+            "resume_data": entry.get("resume_data", {}),
+            "page_target": entry.get("page_target", 2),
+            "company_target": entry.get("company_target", "GENERAL")
+        }), 200
+
+
 @app.route("/get-resume", methods=["GET"])
 def get_resume():
+    """Legacy endpoint - returns html once ready, or pending status."""
     resume_id = request.args.get("id", "")
-    html = resume_store.get(
-        resume_id, "<p>Resume not found or expired.</p>"
-    )
-    return jsonify({"success": True, "html": html}), 200
+    entry = resume_store.get(resume_id)
+
+    if entry is None:
+        return jsonify({
+            "success": True,
+            "html": "<p>Resume not found or expired.</p>"
+        }), 200
+
+    status = entry.get("status", "pending")
+    if status == "done":
+        return jsonify({"success": True, "html": entry.get("html", "")}), 200
+    elif status == "error":
+        return jsonify({
+            "success": True,
+            "html": f"<p>Resume generation failed: "
+                    f"{entry.get('error', 'Unknown error')}</p>"
+        }), 200
+    else:
+        return jsonify({
+            "success": True,
+            "html": "<p>Your resume is still generating. Please wait...</p>",
+            "pending": True
+        }), 200
 
 
 @app.route("/resume", methods=["GET"])
