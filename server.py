@@ -59,10 +59,62 @@ def deep_clean_raw(raw: str) -> str:
     return raw
 
 
+def fix_broken_lines(text: str) -> str:
+    """
+    Joins lines that were broken mid-sentence in copy-pasted resume text.
+    A line break inside a sentence (not starting a new bullet/section)
+    gets joined with a space instead of treated as a new bullet.
+    """
+    if not text:
+        return text
+
+    lines = text.split('\n')
+    result = []
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            result.append('')
+            i += 1
+            continue
+
+        # Keep joining next line if current line doesn't end with
+        # sentence-ending punctuation and next line doesn't start
+        # a new bullet or section header
+        while i + 1 < len(lines):
+            next_line = lines[i + 1].strip()
+            if not next_line:
+                break
+            # Next line starts a new bullet or section = stop joining
+            if next_line[0] in ('-', '*', '#', '\u2022') or \
+               next_line.isupper() or \
+               (len(next_line) > 2 and next_line[0].isupper() and
+                    next_line.endswith(':')):
+                break
+            # Current line ends with punctuation = stop joining
+            if line and line[-1] in ('.', '!', '?', ':'):
+                break
+            # Join the lines
+            line = line + ' ' + next_line
+            i += 1
+
+        result.append(line)
+        i += 1
+
+    return '\n'.join(result)
+
+
 def sanitize_payload(payload):
     """Recursively sanitize all string values after JSON parsing."""
     if isinstance(payload, dict):
-        return {k: sanitize_payload(v) for k, v in payload.items()}
+        result = {}
+        for k, v in payload.items():
+            if k in ('existing_resume_text', 'job_description') and \
+               isinstance(v, str):
+                result[k] = fix_broken_lines(v.strip())
+            else:
+                result[k] = sanitize_payload(v)
+        return result
     elif isinstance(payload, list):
         return [sanitize_payload(item) for item in payload]
     elif isinstance(payload, str):
