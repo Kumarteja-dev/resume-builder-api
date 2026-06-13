@@ -528,32 +528,18 @@ Return the final, flawless JSON object. This is the production output.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_pipeline(payload: dict) -> dict:
-    """
-    Main entry point. Runs Steps 1 → 2 → 3 sequentially.
-
-    Returns:
-        {
-            "success": True,
-            "resume_data": { ...final JSON... },
-            "page_target": 2 | 3,
-            "company_target": "GOOGLE",
-            "debug": { "step1_chars": N, "step2_chars": N }
-        }
-    """
 
     print(f"[PIPELINE] Starting | Company: {payload.get('company_target')} | "
           f"Workflow: {payload.get('workflow')} | "
           f"Years: {payload.get('years_experience')}")
 
-    # ── Step 1 ──────────────────────────────────────────────────────────────
     print("[PIPELINE] Step 1: Specialist Writer...")
     s1_output = step1_specialist_writer(payload)
     print(f"[PIPELINE] Step 1 complete. Output length: {len(s1_output)} chars")
 
-    # ── Step 2 SKIPPED for speed ─────────────────────────────────────────────
     print("[PIPELINE] Skipping Step 2 for speed...")
     s2_output = s1_output
-    # ── Step 3 ──────────────────────────────────────────────────────────────
+
     print("[PIPELINE] Step 3: ATS Guard & Proofreader...")
     final_data = step3_ats_guard(s2_output, payload)
     print("[PIPELINE] Step 3 complete. Final JSON parsed successfully.")
@@ -561,79 +547,17 @@ def run_pipeline(payload: dict) -> dict:
     years_exp = payload.get("years_experience", 4)
     page_target = 3 if years_exp >= 8 else 2
 
+    from resume_renderer import render_resume_html
+    html = render_resume_html(final_data, page_target)
+
     return {
-        from resume_renderer import render_resume_html
-html = render_resume_html(final_data, page_target)
-
-return {
-    "success": True,
-    "resume_data": final_data,
-    "page_target": page_target,
-    "company_target": payload.get("company_target", "GENERAL"),
-    "html": html,
-    "debug": {
-        "step1_chars": len(s1_output),
-        "step2_chars": len(s2_output),
+        "success": True,
+        "resume_data": final_data,
+        "page_target": page_target,
+        "company_target": payload.get("company_target", "GENERAL"),
+        "html": html,
+        "debug": {
+            "step1_chars": len(s1_output),
+            "step2_chars": len(s2_output),
+        }
     }
-}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# TEST HARNESS — Run this file directly to test: python resume_pipeline.py
-# ─────────────────────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    test_payload = {
-        "workflow": "scratch",
-        "company_target": "GOOGLE",
-        "years_experience": 5,
-        "job_description": """
-            Software Engineer, Google Search
-            We are looking for a software engineer to join our Search Infrastructure team.
-            Responsibilities: design and build large-scale distributed systems, optimize
-            latency and throughput, work cross-functionally with product and UX teams.
-            Requirements: 3+ years Python or Go, experience with distributed systems,
-            strong CS fundamentals, experience with SQL and NoSQL databases.
-        """,
-        "contact": {
-            "name": "Alex Chen",
-            "email": "alex.chen@email.com",
-            "phone": "+1 (415) 555-0192",
-            "linkedin": "linkedin.com/in/alexchen",
-            "location": "San Francisco, CA"
-        },
-        "employment": [
-            {
-                "company": "Stripe",
-                "title": "Software Engineer II",
-                "start_date": "Mar 2022",
-                "end_date": "Present"
-            },
-            {
-                "company": "Robinhood",
-                "title": "Software Engineer I",
-                "start_date": "Jun 2020",
-                "end_date": "Feb 2022"
-            },
-            {
-                "company": "Palantir Technologies",
-                "title": "Junior Software Engineer",
-                "start_date": "Jul 2019",
-                "end_date": "May 2020"
-            }
-        ],
-        "education": [
-            {
-                "school": "UC Berkeley",
-                "degree": "B.S.",
-                "major": "Electrical Engineering & Computer Science",
-                "grad_year": "2019"
-            }
-        ]
-    }
-
-    result = run_pipeline(test_payload)
-    print("\n" + "="*60)
-    print("FINAL PIPELINE OUTPUT:")
-    print("="*60)
-    print(json.dumps(result, indent=2))
