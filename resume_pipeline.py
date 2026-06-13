@@ -4,50 +4,7 @@ ELITE AI RESUME BUILDER — PRODUCTION BACKEND PIPELINE
 =============================================================================
 CTO Architecture: 3-Step Sequential LLM Pipeline
 Model: claude-sonnet-4-6
-Author: Lead Architect
 =============================================================================
-
-USAGE (from your Flask/FastAPI server or directly):
-    from resume_pipeline import run_pipeline
-    result = run_pipeline(payload)
-
-PAYLOAD SHAPE (sent from Bubble via Webhook):
-    {
-      "workflow": "tailor" | "scratch",
-      "company_target": "GOOGLE" | "AMAZON" | "APPLE" | "META" |
-                        "NVIDIA" | "NETFLIX" | "TIKTOK" |
-                        "FORTUNE50" | "GENERAL",
-      "years_experience": 6,          # integer — drives 2 vs 3 page rule
-      "job_description": "...",
-
-      # --- Option A (Tailor Engine) ---
-      "existing_resume_text": "...",  # only if workflow == "tailor"
-
-      # --- Option B (From Scratch Engine) ---
-      "contact": {                    # only if workflow == "scratch"
-        "name": "Jane Smith",
-        "email": "jane@email.com",
-        "phone": "+1 (555) 000-0000",
-        "linkedin": "linkedin.com/in/janesmith",
-        "location": "San Francisco, CA"
-      },
-      "employment": [                 # ordered newest → oldest
-        {
-          "company": "Acme Corp",
-          "title": "Senior Product Manager",
-          "start_date": "Jan 2021",
-          "end_date": "Present"
-        }
-      ],
-      "education": [
-        {
-          "school": "MIT",
-          "degree": "B.S.",
-          "major": "Computer Science",
-          "grad_year": "2017"
-        }
-      ]
-    }
 """
 
 import json
@@ -59,7 +16,9 @@ import anthropic
 # ─────────────────────────────────────────────────────────────────────────────
 
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 4096
+MAX_TOKENS_STEP1 = 4096
+MAX_TOKENS_STEP2 = 8096   # Increased — critic needs room to rewrite
+MAX_TOKENS_STEP3 = 8096   # Increased — ATS guard needs room to finalize
 
 client = anthropic.Anthropic()  # Reads ANTHROPIC_API_KEY from environment
 
@@ -167,12 +126,10 @@ COMPANY STYLE: GENERAL COMPETITIVE
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE DENSITY RULES (driven by years of experience)
+# PAGE DENSITY RULES
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_density_rules(years_experience: int, num_jobs: int) -> str:
-    """Returns the structural density rules for the writer prompt."""
-
     if years_experience >= 8:
         page_target = 3
         scope = "3 FULL PAGES (Senior/Executive level)"
@@ -180,44 +137,51 @@ def get_density_rules(years_experience: int, num_jobs: int) -> str:
         page_target = 2
         scope = "2 FULL PAGES (Mid-level professional)"
 
-    # Build per-job bullet counts
     job_rules = []
     for i in range(num_jobs):
         if i == 0:
-            job_rules.append(f"  • Job 1 (Most Recent): Generate EXACTLY 9–10 bullet points.")
+            job_rules.append(f"  - Job 1 (Most Recent): Generate EXACTLY 9-10 bullet points.")
         elif i == 1:
-            job_rules.append(f"  • Job 2: Generate EXACTLY 7–8 bullet points.")
+            job_rules.append(f"  - Job 2: Generate EXACTLY 7-8 bullet points.")
         else:
-            job_rules.append(f"  • Job {i+1} (Older Role): Generate EXACTLY 5–6 bullet points.")
+            job_rules.append(f"  - Job {i+1} (Older Role): Generate EXACTLY 5-6 bullet points.")
 
     bullet_job_rules = "\n".join(job_rules)
 
     return f"""
-MANDATORY PAGE DENSITY RULES — DO NOT VIOLATE:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TARGET: {scope} — you MUST fill this space completely. Thin, sparse output is a failure.
+MANDATORY PAGE DENSITY RULES:
+TARGET: {scope} — you MUST fill this space completely.
 
-1. PROFESSIONAL SUMMARY: Must be exactly 5 dense, impactful lines of text.
-   - Not 4 lines. Not 6 lines. Exactly 5.
-   - Each line should be a full, rich sentence.
+1. PROFESSIONAL SUMMARY: Exactly 5 dense, impactful sentences as a single paragraph.
 
-2. PER-JOB BULLET POINT COUNTS (non-negotiable):
+2. PER-JOB BULLET POINT COUNTS:
 {bullet_job_rules}
 
-3. BULLET POINT FORMULA (every single bullet, no exceptions):
-   - MUST start with a STRONG action verb (not "Helped", "Assisted", "Supported")
-   - MUST contain at least one quantified metric (%, $, X×, N users, N team members, rank)
+3. BULLET POINT FORMULA (every single bullet):
+   - MUST start with a strong action verb
+   - MUST contain at least one quantified metric (%, $, Xx, N users, N team members)
    - MUST reference a specific technical tool, methodology, or framework
-   Example: "Architected a real-time data pipeline using Apache Kafka and Spark Streaming,
-             reducing event processing latency by 73% across 12M daily active users."
 
-4. SKILLS SECTION: List 18–24 skills organized into 3 subcategories.
+4. SKILLS SECTION: 18-24 skills in 3 subcategories.
 
-5. TOTAL WORD COUNT TARGET:
-   - 2-page resume: 900–1,100 words of content
-   - 3-page resume: 1,400–1,700 words of content
-   Fill every line. Do not leave white space. Density is the goal.
+5. TOTAL WORD COUNT:
+   - 2-page resume: 900-1,100 words
+   - 3-page resume: 1,400-1,700 words
 """
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SAFE JSON EXTRACTOR (shared utility)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def extract_json(raw: str) -> dict:
+    """Strips markdown fences and extracts the outermost JSON object."""
+    cleaned = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}") + 1
+    if start == -1 or end == 0:
+        raise ValueError(f"No valid JSON found. Raw output:\n{raw[:500]}")
+    return json.loads(cleaned[start:end])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -225,48 +189,38 @@ TARGET: {scope} — you MUST fill this space completely. Thin, sparse output is 
 # ─────────────────────────────────────────────────────────────────────────────
 
 def step1_specialist_writer(payload: dict) -> str:
-    """
-    Generates the initial tailored resume based on company style
-    and mandatory density constraints. Returns raw resume text.
-    """
-
     company = payload.get("company_target", "GENERAL")
     company_prompt = COMPANY_STYLE_PROMPTS.get(company, COMPANY_STYLE_PROMPTS["GENERAL"])
     years_exp = payload.get("years_experience", 4)
     jd = payload.get("job_description", "")
     workflow = payload.get("workflow", "tailor")
 
-    # Determine number of jobs for density rules
     if workflow == "scratch":
         num_jobs = len(payload.get("employment", []))
     else:
-        # Estimate from resume text (we'll use 3 as a safe default for tailor)
         num_jobs = 3
 
     density_rules = get_density_rules(years_exp, max(num_jobs, 1))
 
-    # Build the source material block
     if workflow == "tailor":
         source_material = f"""
 SOURCE MATERIAL (Existing Resume):
-───────────────────────────────────
 {payload.get('existing_resume_text', '')}
 """
         task_instruction = """
-TASK: You are tailoring an existing resume. You MUST:
+TASK: Tailor this existing resume. You MUST:
 - Preserve all real company names, job titles, and dates EXACTLY as written.
-- Realign all bullet points to the target JD and company style above.
-- Rewrite weak bullets to meet the formula. Add new bullets to hit density targets.
+- Realign all bullet points to the target JD and company style.
+- Rewrite weak bullets to meet the formula. Add bullets to hit density targets.
 - Do NOT invent new employers or change job titles.
 """
-
-    else:  # scratch
+    else:
         contact = payload.get("contact", {})
         employment = payload.get("employment", [])
         education = payload.get("education", [])
 
         emp_block = "\n".join([
-            f"  - {e.get('title')} at {e.get('company')} | {e.get('start_date')} – {e.get('end_date')}"
+            f"  - {e.get('title')} at {e.get('company')} | {e.get('start_date')} - {e.get('end_date')}"
             for e in employment
         ])
         edu_block = "\n".join([
@@ -275,8 +229,7 @@ TASK: You are tailoring an existing resume. You MUST:
         ])
 
         source_material = f"""
-SOURCE MATERIAL (Structural Logistics — PRESERVE EXACTLY):
-──────────────────────────────────────────────────────────
+SOURCE MATERIAL (Structural Logistics - PRESERVE EXACTLY):
 CONTACT:
   Name: {contact.get('name', '')}
   Email: {contact.get('email', '')}
@@ -291,10 +244,10 @@ EDUCATION:
 {edu_block}
 """
         task_instruction = """
-TASK: You are building a resume FROM SCRATCH around the structural logistics above. You MUST:
-- Use ALL company names, job titles, and dates EXACTLY as provided above.
-- Construct ALL professional content (bullet points, summary, skills) from scratch.
-- Tailor every single word to the Job Description and company style.
+TASK: Build a resume FROM SCRATCH. You MUST:
+- Use ALL company names, job titles, and dates EXACTLY as provided.
+- Construct ALL professional content from scratch.
+- Tailor every word to the Job Description and company style.
 - Infer plausible, high-impact achievements consistent with the title and company.
 """
 
@@ -311,13 +264,11 @@ You write with surgical precision, metric-first language, and zero filler.
 {source_material}
 
 TARGET JOB DESCRIPTION:
-───────────────────────
 {jd}
 
 {task_instruction}
 
-OUTPUT FORMAT — Return a valid JSON object ONLY. No markdown. No explanation. No preamble.
-The JSON must follow this exact schema:
+OUTPUT FORMAT: Return a valid JSON object ONLY. No markdown. No explanation. No preamble.
 
 {{
   "contact": {{
@@ -327,7 +278,7 @@ The JSON must follow this exact schema:
     "linkedin": "...",
     "location": "..."
   }},
-  "professional_summary": "5-line summary here as a single paragraph string.",
+  "professional_summary": "5-sentence summary as a single paragraph string.",
   "experience": [
     {{
       "company": "...",
@@ -355,7 +306,7 @@ The JSON must follow this exact schema:
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=MAX_TOKENS,
+        max_tokens=MAX_TOKENS_STEP1,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}]
     )
@@ -368,12 +319,6 @@ The JSON must follow this exact schema:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def step2_faang_critic(step1_output: str, payload: dict) -> str:
-    """
-    Takes Step 1's output and tears it apart like a FAANG hiring manager.
-    Strips AI phrasing, upgrades weak verbs, ensures JD alignment.
-    Returns improved JSON string.
-    """
-
     jd = payload.get("job_description", "")
     company = payload.get("company_target", "GENERAL")
     company_prompt = COMPANY_STYLE_PROMPTS.get(company, COMPANY_STYLE_PROMPTS["GENERAL"])
@@ -384,53 +329,46 @@ You hate: vague language, weak verbs, AI-sounding filler, missing metrics,
 and bullets that don't prove direct personal impact.
 
 Your job: tear apart the draft below and rebuild it to perfection.
-Return ONLY improved JSON. Same schema. No explanation."""
+Return ONLY improved JSON. Same schema. No markdown. No explanation."""
 
     user_prompt = f"""
 COMPANY TARGET: {company}
 {company_prompt}
 
-JOB DESCRIPTION (the standard this resume must meet):
-──────────────────────────────────────────────────────
+JOB DESCRIPTION:
 {jd}
 
 DRAFT RESUME JSON TO CRITIQUE AND UPGRADE:
-──────────────────────────────────────────
 {step1_output}
 
 YOUR CRITIQUE CHECKLIST (fix ALL of these):
 
-1. WEAK VERBS — Replace any of these immediately:
+1. WEAK VERBS - Replace immediately:
    BAD: "Helped", "Assisted", "Supported", "Worked on", "Participated in",
         "Was responsible for", "Contributed to", "Involved in"
    GOOD: "Architected", "Engineered", "Spearheaded", "Accelerated", "Slashed",
          "Drove", "Launched", "Negotiated", "Scaled", "Orchestrated", "Pioneered"
 
-2. AI FILLER PHRASES — Delete on sight:
+2. AI FILLER PHRASES - Delete on sight:
    "Leveraged synergies", "Demonstrated expertise in", "Utilized best practices",
    "Passionate about", "Results-driven", "Detail-oriented", "Team player",
    "Proven track record", "Dynamic professional", "Seeking to"
 
-3. MISSING METRICS — Every bullet needs a number. If a bullet has none, add one.
-   Acceptable: %, $, ×, number of users, team size, time saved, rank, revenue, latency.
+3. MISSING METRICS - Every bullet needs a number. If a bullet has none, add one.
 
-4. JD KEYWORD GAPS — Cross-reference the JD above. If a required skill or
-   technology appears in the JD but not in the resume, inject it naturally into
-   the most relevant bullet or the skills section.
+4. JD KEYWORD GAPS - If a required skill in the JD is missing from the resume,
+   inject it naturally into the most relevant bullet or skills section.
 
-5. SUMMARY QUALITY — The 5-line summary must open with the candidate's title
-   and a defining career-level statement. Must NOT start with "I".
-   Must NOT use any of the filler phrases listed above.
+5. SUMMARY QUALITY - Must NOT start with "I". Must NOT use filler phrases above.
 
-6. DENSITY CHECK — Recount bullets per job. If any job is below the minimum,
-   add new bullets. Do not remove bullets that are already strong.
+6. DENSITY CHECK - If any job is below the minimum bullet count, add new bullets.
 
 Return the corrected, perfected JSON. Same schema as input. No markdown fences.
 """
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=MAX_TOKENS,
+        max_tokens=MAX_TOKENS_STEP2,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}]
     )
@@ -443,11 +381,6 @@ Return the corrected, perfected JSON. Same schema as input. No markdown fences.
 # ─────────────────────────────────────────────────────────────────────────────
 
 def step3_ats_guard(step2_output: str, payload: dict) -> dict:
-    """
-    Final pass: grammar, deduplication, ATS compliance, layout constraints.
-    Returns a clean, final Python dict ready for template injection.
-    """
-
     years_exp = payload.get("years_experience", 4)
     page_target = 3 if years_exp >= 8 else 2
 
@@ -458,69 +391,48 @@ Return ONLY clean JSON. Same schema. No markdown."""
 
     user_prompt = f"""
 PAGE TARGET: {page_target} pages
+
 RESUME JSON FROM PREVIOUS STEP:
-────────────────────────────────
 {step2_output}
 
-FINAL QUALITY CHECKLIST — Fix every item:
+FINAL QUALITY CHECKLIST:
 
-1. GRAMMAR & SPELLING — Correct all errors. Tense consistency:
+1. GRAMMAR & SPELLING - Correct all errors. Tense consistency:
    - Current job: present tense ("Leads", "Manages", "Drives")
    - Past jobs: past tense ("Led", "Managed", "Drove")
 
-2. WORD REPETITION — Scan all bullets. No action verb may appear more than
-   twice across the ENTIRE resume. Replace duplicates with strong synonyms.
+2. WORD REPETITION - No action verb may appear more than twice across the entire resume.
 
 3. ATS SAFETY RULES:
-   - No special characters: ✓ ✗ → ★ | • (these break parsers)
-   - Use plain ASCII hyphens for bullets internally (they'll be formatted by template)
-   - No tables, columns, text boxes implied in the content
+   - No special characters: no arrows, stars, checkmarks (these break parsers)
+   - Use plain ASCII hyphens only
    - Spell out all acronyms at first use: "Machine Learning (ML)"
 
 4. BULLET LENGTH CONTROL:
-   - Each bullet must be 1–2 lines when rendered at 10pt font, ~100 characters max
-   - If a bullet exceeds this, split it into two separate bullets
-   - No bullet should be a one-liner fragment under 60 characters
+   - Each bullet: 1-2 lines at 10pt font, roughly 100 characters max
+   - Split any bullet that exceeds this into two bullets
+   - No bullet under 60 characters
 
-5. SUMMARY LINE COUNT:
-   - The professional_summary field must render as EXACTLY 5 lines.
-   - Target ~75–85 words for the summary paragraph.
-   - Count and adjust now.
+5. SUMMARY: Must be exactly 5 sentences. Roughly 75-85 words total.
 
-6. SKILLS DEDUPLICATION:
-   - Remove any skill that already appears in a bullet point as a tool reference
-     (unless it's a high-priority JD keyword — keep those)
-   - Each skill category should have 6–8 items
+6. SKILLS DEDUPLICATION: Each skill category should have 6-8 items.
 
-7. FINAL DENSITY VERIFICATION:
-   - Confirm bullet counts per job match requirements
-   - If page_target is 3 and total word count < 1,400 — expand bullets
-   - If page_target is 2 and total word count < 900 — expand bullets
+7. DENSITY VERIFICATION:
+   - If page_target is 3 and total word count is under 1,400 — expand bullets
+   - If page_target is 2 and total word count is under 900 — expand bullets
 
 Return the final, flawless JSON object. This is the production output.
 """
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=MAX_TOKENS,
+        max_tokens=MAX_TOKENS_STEP3,
         system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}]
     )
 
     raw = response.content[0].text
-
-    # ── Safe JSON extraction ──────────────────────────────────────────────
-    # Strip any accidental markdown fences
-    cleaned = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
-
-    # Find the outermost JSON object
-    start = cleaned.find("{")
-    end = cleaned.rfind("}") + 1
-    if start == -1 or end == 0:
-        raise ValueError(f"Step 3 did not return valid JSON. Raw output:\n{raw[:500]}")
-
-    json_str = cleaned[start:end]
-    return json.loads(json_str)
+    return extract_json(raw)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -533,16 +445,30 @@ def run_pipeline(payload: dict) -> dict:
           f"Workflow: {payload.get('workflow')} | "
           f"Years: {payload.get('years_experience')}")
 
+    # ── STEP 1: Specialist Writer ─────────────────────────────────────────
     print("[PIPELINE] Step 1: Specialist Writer...")
     s1_output = step1_specialist_writer(payload)
-    print(f"[PIPELINE] Step 1 complete. Output length: {len(s1_output)} chars")
+    print(f"[PIPELINE] Step 1 complete. Output: {len(s1_output)} chars")
 
-    print("[PIPELINE] Skipping Step 2 for speed...")
-    s2_output = s1_output
+    # ── STEP 2: FAANG Critic ─────────────────────────────────────────────
+    print("[PIPELINE] Step 2: FAANG Critic...")
+    try:
+        s2_output = step2_faang_critic(s1_output, payload)
+        # Validate Step 2 returned parseable JSON before proceeding
+        extract_json(s2_output)
+        print(f"[PIPELINE] Step 2 complete. Output: {len(s2_output)} chars")
+    except Exception as e:
+        print(f"[PIPELINE] Step 2 failed ({e}). Falling back to Step 1 output.")
+        s2_output = s1_output
 
+    # ── STEP 3: ATS Guard ────────────────────────────────────────────────
     print("[PIPELINE] Step 3: ATS Guard & Proofreader...")
-    final_data = step3_ats_guard(s2_output, payload)
-    print("[PIPELINE] Step 3 complete. Final JSON parsed successfully.")
+    try:
+        final_data = step3_ats_guard(s2_output, payload)
+        print("[PIPELINE] Step 3 complete. Final JSON parsed successfully.")
+    except Exception as e:
+        print(f"[PIPELINE] Step 3 failed ({e}). Falling back to Step 2 output.")
+        final_data = extract_json(s2_output)
 
     years_exp = payload.get("years_experience", 4)
     page_target = 3 if years_exp >= 8 else 2
@@ -559,5 +485,6 @@ def run_pipeline(payload: dict) -> dict:
         "debug": {
             "step1_chars": len(s1_output),
             "step2_chars": len(s2_output),
+            "step3_complete": True,
         }
     }
