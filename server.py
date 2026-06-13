@@ -40,7 +40,10 @@ def generate_resume():
     Returns the full pipeline result including resume_data JSON.
     """
     try:
-        payload = request.get_json(force=True)
+        raw_data = request.get_data(as_text=True)
+        import re
+        raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw_data)
+        payload = json.loads(raw_data)
 
         # ── Basic validation ────────────────────────────────────────────
         required_fields = ["workflow", "company_target", "years_experience", "job_description"]
