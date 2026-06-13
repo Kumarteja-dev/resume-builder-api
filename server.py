@@ -36,15 +36,29 @@ def generate_resume():
         raw_data = request.get_data(as_text=True)
         raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', raw_data)
         payload = json.loads(raw_data)
-
         required_fields = ["workflow", "company_target", "years_experience", "job_description"]
         for field in required_fields:
             if field not in payload:
                 return jsonify({"success": False, "error": f"Missing required field: '{field}'"}), 400
-
         result = run_pipeline(payload)
         return jsonify(result), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/render-html", methods=["POST"])
+def render_html():
+    from resume_renderer import render_resume_html
+    try:
+        raw_data = request.get_data(as_text=True)
+        raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', raw_data)
+        body = json.loads(raw_data)
+        resume_data = body.get("resume_data")
+        page_target = body.get("page_target", 2)
+        if not resume_data:
+            return jsonify({"success": False, "error": "resume_data is required"}), 400
+        html = render_resume_html(resume_data, page_target)
+        return jsonify({"success": True, "html": html}), 200
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
