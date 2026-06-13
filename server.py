@@ -17,31 +17,64 @@ app = Flask(__name__, static_folder="templates")
 CORS(app)
 
 
-def sanitize_text(value):
-    if not isinstance(value, str):
-        return value
-    value = value.replace('\u2018', "'").replace('\u2019', "'")
-    value = value.replace('\u201c', '"').replace('\u201d', '"')
-    value = value.replace('\u2022', '-').replace('\u2023', '-')
-    value = value.replace('\u25cf', '-').replace('\u25e6', '-')
-    value = value.replace('\u2014', '-').replace('\u2013', '-')
-    value = value.replace('\u00a0', ' ')
-    value = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', value)
-    value = re.sub(r'  +', ' ', value)
-    return value.strip()
+def deep_clean_raw(raw: str) -> str:
+    """
+    Aggressively cleans raw request body BEFORE JSON parsing.
+    Handles all special characters that break JSON parsing.
+    """
+    # Replace smart/curly quotes with straight quotes
+    raw = raw.replace('\u2018', "'").replace('\u2019', "'")
+    raw = raw.replace('\u201c', '"').replace('\u201d', '"')
+
+    # Replace bullet characters with hyphens
+    raw = raw.replace('\u2022', '-').replace('\u2023', '-')
+    raw = raw.replace('\u25cf', '-').replace('\u25e6', '-')
+    raw = raw.replace('\u2043', '-').replace('\u204c', '-')
+
+    # Replace em dash and en dash with hyphen
+    raw = raw.replace('\u2014', '-').replace('\u2013', '-')
+
+    # Replace non-breaking spaces
+    raw = raw.replace('\u00a0', ' ')
+
+    # Replace ellipsis
+    raw = raw.replace('\u2026', '...')
+
+    # Replace other common special chars
+    raw = raw.replace('\u00b7', '-')  # middle dot
+    raw = raw.replace('\u2192', '->') # arrow
+    raw = raw.replace('\u2714', '')   # checkmark
+    raw = raw.replace('\u2713', '')   # checkmark
+    raw = raw.replace('\u2717', '')   # cross
+    raw = raw.replace('\u2605', '')   # star
+    raw = raw.replace('\u00ae', '')   # registered trademark
+    raw = raw.replace('\u2122', '')   # trademark
+
+    # Remove ALL control characters except newline, tab, carriage return
+    raw = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', raw)
+
+    # Normalize multiple spaces (but preserve newlines)
+    raw = re.sub(r'[ \t]+', ' ', raw)
+
+    return raw
 
 
 def sanitize_payload(payload):
+    """Recursively sanitize all string values after JSON parsing."""
     if isinstance(payload, dict):
         return {k: sanitize_payload(v) for k, v in payload.items()}
     elif isinstance(payload, list):
         return [sanitize_payload(item) for item in payload]
     elif isinstance(payload, str):
-        return sanitize_text(payload)
+        return payload.strip()
     return payload
 
 
 def reconstruct_scratch_payload(payload):
+    """
+    Bubble sends flat parameters for scratch workflow.
+    Reconstruct nested contact/employment/education structure.
+    """
     contact = {
         "name": payload.get("contact_name", ""),
         "email": payload.get("contact_email", ""),
@@ -86,28 +119,56 @@ def health():
 @app.route("/generate-resume", methods=["POST"])
 def generate_resume():
     try:
+        # Get raw data
         raw_data = request.get_data(as_text=True)
-        raw_data = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', ' ', raw_data)
 
-        payload = json.loads(raw_data)
+        # Deep clean BEFORE JSON parsing — this is critical
+        raw_data = deep_clean_raw(raw_data)
+
+        # Parse JSON
+        try:
+            payload = json.loads(raw_data)
+        except json.JSONDecodeError as e:
+            # If still failing, try a more aggressive clean
+            raw_data = raw_data.encode('ascii', errors='ignore').decode('ascii')
+            payload = json.loads(raw_data)
+
+        # Sanitize all string values after parsing
         payload = sanitize_payload(payload)
 
+        # Convert years_experience to int safely
         if "years_experience" in payload:
             try:
-                payload["years_experience"] = int(float(str(payload["years_experience"])))
+                payload["years_experience"] = int(
+                    float(str(payload["years_experience"]))
+                )
             except (ValueError, TypeError):
                 payload["years_experience"] = 4
 
+        # Convert include_projects to bool
+        if "include_projects" in payload:
+            val = payload["include_projects"]
+            if isinstance(val, str):
+                payload["include_projects"] = val.lower() in (
+                    "true", "1", "yes"
+                )
+            elif not isinstance(val, bool):
+                payload["include_projects"] = bool(val)
+
+        # Auto-detect workflow if missing
         if "workflow" not in payload or not payload["workflow"]:
             if payload.get("existing_resume_text", "").strip():
                 payload["workflow"] = "tailor"
             else:
                 payload["workflow"] = "scratch"
 
+        # For scratch workflow, reconstruct nested structures
         if payload.get("workflow") == "scratch":
             payload = reconstruct_scratch_payload(payload)
 
-        required_fields = ["company_target", "years_experience", "job_description"]
+        # Validate required fields
+        required_fields = ["company_target", "years_experience",
+                           "job_description"]
         for field in required_fields:
             if field not in payload:
                 return jsonify({
@@ -115,8 +176,10 @@ def generate_resume():
                     "error": f"Missing required field: '{field}'"
                 }), 400
 
+        # Run the pipeline
         result = run_pipeline(payload)
 
+        # Store and return
         resume_id = str(uuid.uuid4())[:8]
         resume_store[resume_id] = result.get("html", "")
         result["resume_id"] = resume_id
@@ -126,7 +189,8 @@ def generate_resume():
     except json.JSONDecodeError as e:
         return jsonify({
             "success": False,
-            "error": f"Invalid JSON in request: {str(e)}"
+            "error": f"Could not parse request. Please avoid special "
+                     f"characters in your resume or job description: {str(e)}"
         }), 400
 
     except Exception as e:
@@ -137,7 +201,9 @@ def generate_resume():
 @app.route("/get-resume", methods=["GET"])
 def get_resume():
     resume_id = request.args.get("id", "")
-    html = resume_store.get(resume_id, "<p>Resume not found or expired</p>")
+    html = resume_store.get(
+        resume_id, "<p>Resume not found or expired.</p>"
+    )
     return jsonify({"success": True, "html": html}), 200
 
 
