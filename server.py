@@ -3,14 +3,16 @@
 ELITE RESUME BUILDER — FLASK API SERVER
 =============================================================================
 """
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from resume_pipeline import run_pipeline
+from resume_docx_renderer import render_resume_docx
 import traceback
 import json
 import re
 import uuid
 import threading
+import io
 
 resume_store = {}
 
@@ -405,6 +407,45 @@ def get_resume():
             "html": "<p>Your resume is still generating. Please wait...</p>",
             "pending": True
         }), 200
+
+
+@app.route("/download-docx", methods=["GET"])
+def download_docx():
+    """
+    Returns the resume as a downloadable .docx file.
+    Usage: /download-docx?id=<resume_id>
+    """
+    resume_id = request.args.get("id", "")
+    entry = resume_store.get(resume_id)
+
+    if entry is None or entry.get("status") != "done":
+        return jsonify({
+            "success": False,
+            "error": "Resume not found, expired, or not yet ready."
+        }), 404
+
+    resume_data = entry.get("resume_data", {})
+
+    try:
+        docx_bytes = render_resume_docx(resume_data)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"Could not generate Word document: {str(e)}"
+        }), 500
+
+    # Build a clean filename from the candidate's name
+    name = resume_data.get("contact", {}).get("name", "Resume")
+    safe_name = re.sub(r'[^A-Za-z0-9 _-]', '', name).strip().replace(' ', '_')
+    filename = f"{safe_name or 'Resume'}_Resume.docx"
+
+    return send_file(
+        io.BytesIO(docx_bytes),
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        as_attachment=True,
+        download_name=filename
+    )
 
 
 @app.route("/resume", methods=["GET"])
