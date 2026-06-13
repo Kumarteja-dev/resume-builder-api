@@ -1,15 +1,23 @@
 """
 =============================================================================
-ELITE AI RESUME BUILDER — PRODUCTION BACKEND PIPELINE
+ELITE AI RESUME BUILDER — PRODUCTION BACKEND PIPELINE v4
 =============================================================================
-CTO Architecture: 3-Step Sequential LLM Pipeline
 Model: claude-sonnet-4-6
+3-Step Pipeline: Specialist Writer → FAANG Critic → ATS Guard
+
+NEW IN v4:
+- Target job title field support
+- Smart AI-generated projects (based on actual role/company/sector)
+- Stronger JD keyword matching in Step 2
+- Optional projects section (only renders if generated or provided)
+- All sector awareness and anti-fabrication rules from v3
 =============================================================================
 """
 
 import json
 import re
 import anthropic
+from datetime import datetime
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
@@ -17,112 +25,170 @@ import anthropic
 
 MODEL = "claude-sonnet-4-6"
 MAX_TOKENS_STEP1 = 4096
-MAX_TOKENS_STEP2 = 8096   # Increased — critic needs room to rewrite
-MAX_TOKENS_STEP3 = 8096   # Increased — ATS guard needs room to finalize
+MAX_TOKENS_STEP2 = 8096
+MAX_TOKENS_STEP3 = 8096
 
-client = anthropic.Anthropic()  # Reads ANTHROPIC_API_KEY from environment
+client = anthropic.Anthropic()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# COMPANY-SPECIFIC STYLE PROMPTS
+# COMPANY STYLE PROMPTS
 # ─────────────────────────────────────────────────────────────────────────────
 
 COMPANY_STYLE_PROMPTS = {
     "GOOGLE": """
 COMPANY STYLE: GOOGLE
-- Write every single bullet using the X-Y-Z formula EXACTLY:
-  "Accomplished [X] as measured by [Y], by doing [Z]"
+- Write every bullet using the X-Y-Z formula: "Accomplished [X] as measured by [Y], by doing [Z]"
 - Lead with hard numbers, percentages, user counts, revenue figures, latency improvements.
 - Prioritize technical rigor, system scale, and engineering precision.
-- Use Google's vocabulary: "launched", "scaled", "shipped", "reduced latency", "drove adoption".
-- The Professional Summary must reference cross-functional leadership and measurable product/technical impact.
+- Use Google vocabulary: "launched", "scaled", "shipped", "reduced latency", "drove adoption".
+- Professional Summary must reference cross-functional leadership and measurable impact.
+- Projects should demonstrate personal initiative, open source contributions, or system design.
 """,
-
     "AMAZON": """
 COMPANY STYLE: AMAZON
-- Frame every bullet around Amazon's 16 Leadership Principles, especially:
+- Frame every bullet around Amazon Leadership Principles:
   Customer Obsession, Ownership, Deliver Results, Bias for Action, Think Big.
 - Include operational scale metrics: customers served, transactions processed, cost saved.
-- Use Amazon vocabulary: "owned end-to-end", "wrote the PRD", "drove operational excellence",
-  "eliminated waste", "mechanisms built".
-- The Professional Summary must open with a customer-first framing and mention scale.
-- Every bullet should imply someone who acts with autonomy and accountability.
+- Use Amazon vocabulary: "owned end-to-end", "drove operational excellence", "eliminated waste".
+- Professional Summary must open with customer-first framing and mention scale.
+- Projects should demonstrate ownership and bias for action outside normal job scope.
 """,
-
     "APPLE": """
 COMPANY STYLE: APPLE
 - Emphasize design precision, product craftsmanship, and cross-functional execution.
-- Tone: elegant, concise, confident — never boastful. Let metrics speak quietly.
-- Bullets should reference design systems, hardware/software integration, deep collaboration
-  with design/engineering/marketing partners.
-- Use Apple vocabulary: "crafted", "refined", "shipped", "collaborated cross-functionally",
-  "drove adoption", "elevated the experience".
-- The Professional Summary should feel like a cover of Fast Company — visionary but grounded.
+- Tone: elegant, concise, confident. Let metrics speak quietly.
+- Use Apple vocabulary: "crafted", "refined", "shipped", "elevated the experience".
+- Professional Summary should feel visionary but grounded.
+- Projects should demonstrate attention to detail and end-user experience focus.
 """,
-
     "META": """
 COMPANY STYLE: META
-- "Move Fast" is the mantra. Every bullet should imply speed, iteration, and scale.
-- Focus on data-driven decisions: A/B tests, north-star metrics, DAU/MAU, engagement rates.
-- Emphasize cross-functional product impact: worked with eng, design, data science, policy.
-- Use Meta vocabulary: "drove growth", "shipped experiment", "moved metric", "built at scale",
-  "zero-to-one product", "iterated rapidly".
-- The Professional Summary must reference building products that impact billions of users.
+- Every bullet implies speed, iteration, and scale.
+- Focus on data-driven decisions: A/B tests, DAU/MAU, engagement rates.
+- Use Meta vocabulary: "drove growth", "shipped experiment", "moved metric", "built at scale".
+- Professional Summary must reference building products that impact billions.
+- Projects should demonstrate data-driven thinking and rapid iteration.
 """,
-
     "NVIDIA": """
 COMPANY STYLE: NVIDIA
-- This is a deeply technical company. Lead with engineering problem-solving and innovation.
-- Bullets should reference: CUDA, GPU architecture, ML infrastructure, silicon design,
-  hardware/software co-design, performance benchmarks (FLOPs, throughput, power efficiency).
-- Emphasize industry-defining impact: "first-of-kind", "state-of-the-art", "new benchmark".
-- Use NVIDIA vocabulary: "architected", "optimized kernel", "reduced inference latency",
-  "improved throughput by Nx", "developed pipeline".
-- The Professional Summary must establish deep technical mastery and pioneering contributions.
+- Deeply technical. Lead with engineering problem-solving and innovation.
+- Reference: CUDA, GPU architecture, ML infrastructure, performance benchmarks.
+- Use NVIDIA vocabulary: "architected", "optimized kernel", "reduced inference latency".
+- Professional Summary must establish deep technical mastery.
+- Projects should demonstrate low-level technical depth and performance optimization.
 """,
-
     "NETFLIX": """
 COMPANY STYLE: NETFLIX
-- Emphasize Netflix's "Freedom and Responsibility" culture: autonomous, high-judgment,
-  no-rules-rules environment.
-- Every bullet should imply a "stunning colleague" — someone who sets context, not control.
-- Focus on high-performance outcomes, independent decision-making, giving/receiving radical feedback.
-- Use Netflix vocabulary: "operated with full autonomy", "set context for", "owned the strategy",
-  "earned trust of", "delivered outsized impact", "no playbook — built it".
-- The Professional Summary should read like a confident executive who doesn't need supervision.
+- Emphasize autonomy, high-judgment, Freedom and Responsibility culture.
+- Use Netflix vocabulary: "operated with full autonomy", "owned the strategy",
+  "delivered outsized impact", "no playbook - built it".
+- Professional Summary should read like a confident executive who needs no supervision.
+- Projects should demonstrate independent thinking and outsized personal impact.
 """,
-
     "TIKTOK": """
 COMPANY STYLE: TIKTOK
-- Emphasize hyper-growth, consumer trend adaptation, and international localization.
-- Bullets should reference algorithm optimization, content loop design, creator/user
-  growth funnels, and cross-border team collaboration.
-- Include metrics: videos served, creator growth %, market penetration, engagement uplift.
-- Use TikTok vocabulary: "localized for", "drove creator growth", "optimized the feed",
-  "shipped viral feature", "collaborated with global counterparts".
-- The Professional Summary should convey agility, global thinking, and rapid shipping culture.
+- Emphasize hyper-growth, consumer trend adaptation, international localization.
+- Include metrics: videos served, creator growth, market penetration, engagement uplift.
+- Use TikTok vocabulary: "drove creator growth", "optimized the feed", "shipped viral feature".
+- Projects should demonstrate consumer product thinking and rapid shipping culture.
 """,
-
     "FORTUNE50": """
 COMPANY STYLE: FORTUNE 50 / ELITE CORPORATE
-- Focus on corporate scale: P&L responsibility, multi-million dollar budgets, enterprise clients,
-  global team leadership (headcount), board-level presentations.
-- Emphasize financial impact: cost savings, revenue generated, EBITDA contribution, market share gained.
-- Use executive vocabulary: "P&L ownership", "managed $XXM budget", "led team of XX",
-  "negotiated enterprise contracts", "drove strategic initiative".
-- The Professional Summary should read like a C-suite executive biography — gravitas and impact.
+- Focus on corporate scale: P&L responsibility, budgets, enterprise clients, global teams.
+- Use executive vocabulary: "P&L ownership", "managed $XXM budget", "led team of XX".
+- Professional Summary should read like a C-suite biography — gravitas and impact.
+- Projects should demonstrate strategic thinking and enterprise-scale impact.
 """,
-
     "GENERAL": """
 COMPANY STYLE: GENERAL COMPETITIVE
-- Use the STAR method (Situation, Task, Action, Result) embedded naturally into each bullet.
-- Balance hard skills (technical tools, methodologies) with leadership and collaboration.
-- Integrate a robust mix of hard ATS keywords naturally throughout.
-- Every bullet must be metric-driven: %, $, X times, ranked #N, N users, N team members.
-- The Professional Summary should be a clean, impactful paragraph that any Fortune 500 recruiter
-  would find compelling.
+- Use STAR method embedded naturally into each bullet.
+- Balance hard skills with leadership and collaboration.
+- Every bullet must be metric-driven: %, $, X times, N users, N team members.
+- Professional Summary should be compelling to any Fortune 500 recruiter.
+- Projects should demonstrate initiative and measurable personal contribution.
 """
 }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTOR DETECTION
+# ─────────────────────────────────────────────────────────────────────────────
+
+SECTOR_KEYWORDS = {
+    "finance": [
+        "banking", "financial", "investment", "trading", "risk", "compliance",
+        "sox", "basel", "fintech", "capital markets", "wealth management",
+        "jpmorgan", "goldman", "morgan stanley", "wells fargo", "citibank",
+        "hedge fund", "private equity", "insurance", "credit", "loan"
+    ],
+    "healthcare": [
+        "healthcare", "health care", "hospital", "clinical", "patient",
+        "hipaa", "ehr", "electronic health", "medical", "pharma",
+        "pharmaceutical", "cvs", "walgreens", "unitedhealth", "cigna",
+        "aetna", "fda", "drug", "diagnosis", "treatment", "care"
+    ],
+    "ecommerce": [
+        "ecommerce", "e-commerce", "retail", "marketplace", "shopify",
+        "fulfillment", "inventory", "catalog", "checkout", "merchant"
+    ],
+    "technology": [
+        "software", "engineer", "developer", "cloud", "infrastructure",
+        "platform", "api", "microservices", "kubernetes", "devops",
+        "machine learning", "ai", "data science", "backend", "frontend"
+    ],
+    "cpg": [
+        "consumer goods", "cpg", "fmcg", "supply chain", "manufacturing",
+        "pepsi", "coca-cola", "unilever", "procter", "nestle",
+        "distribution", "logistics", "warehouse", "procurement"
+    ]
+}
+
+
+def detect_sector(text: str) -> str:
+    text_lower = text.lower()
+    scores = {}
+    for sector, keywords in SECTOR_KEYWORDS.items():
+        scores[sector] = sum(1 for kw in keywords if kw in text_lower)
+    if max(scores.values()) == 0:
+        return "general"
+    return max(scores, key=scores.get)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# YEARS OF EXPERIENCE CALCULATOR
+# ─────────────────────────────────────────────────────────────────────────────
+
+def calculate_years_from_jobs(employment: list) -> int:
+    if not employment:
+        return 4
+
+    month_map = {
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
+    }
+
+    earliest_start = None
+    now = datetime.now()
+
+    for job in employment:
+        try:
+            start_str = job.get("start_date", "").strip().lower()
+            parts = start_str.replace(",", "").split()
+            if len(parts) == 2:
+                month = month_map.get(parts[0][:3], 1)
+                year = int(parts[1])
+                start_dt = datetime(year, month, 1)
+                if earliest_start is None or start_dt < earliest_start:
+                    earliest_start = start_dt
+        except Exception:
+            continue
+
+    if earliest_start is None:
+        return 4
+
+    years = (now - earliest_start).days / 365.25
+    return max(1, int(years))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -131,56 +197,181 @@ COMPANY STYLE: GENERAL COMPETITIVE
 
 def get_density_rules(years_experience: int, num_jobs: int) -> str:
     if years_experience >= 8:
-        page_target = 3
         scope = "3 FULL PAGES (Senior/Executive level)"
     else:
-        page_target = 2
         scope = "2 FULL PAGES (Mid-level professional)"
 
     job_rules = []
     for i in range(num_jobs):
         if i == 0:
-            job_rules.append(f"  - Job 1 (Most Recent): Generate EXACTLY 9-10 bullet points.")
+            job_rules.append(f"  - Job 1 (Most Recent): EXACTLY 9-10 bullet points.")
         elif i == 1:
-            job_rules.append(f"  - Job 2: Generate EXACTLY 7-8 bullet points.")
+            job_rules.append(f"  - Job 2: EXACTLY 7-8 bullet points.")
         else:
-            job_rules.append(f"  - Job {i+1} (Older Role): Generate EXACTLY 5-6 bullet points.")
-
-    bullet_job_rules = "\n".join(job_rules)
+            job_rules.append(f"  - Job {i+1} (Older Role): EXACTLY 5-6 bullet points.")
 
     return f"""
 MANDATORY PAGE DENSITY RULES:
-TARGET: {scope} — you MUST fill this space completely.
+TARGET: {scope}
 
-1. PROFESSIONAL SUMMARY: Exactly 5 dense, impactful sentences as a single paragraph.
+1. PROFESSIONAL SUMMARY: Exactly 5 dense sentences as a single paragraph.
+   - Open with the candidate's exact target job title
+   - Reference years of experience accurately
+   - Include 2-3 hard metrics
+   - End with what they bring to the target company
 
-2. PER-JOB BULLET POINT COUNTS:
-{bullet_job_rules}
+2. PER-JOB BULLET COUNTS:
+{chr(10).join(job_rules)}
 
-3. BULLET POINT FORMULA (every single bullet):
-   - MUST start with a strong action verb
-   - MUST contain at least one quantified metric (%, $, Xx, N users, N team members)
-   - MUST reference a specific technical tool, methodology, or framework
+3. EVERY BULLET MUST:
+   - Start with a strong action verb
+   - Contain at least one quantified metric (%, $, Xx, N users, N team members)
+   - Reference a specific tool, methodology, or framework
 
-4. SKILLS SECTION: 18-24 skills in 3 subcategories.
+4. SKILLS: 3 categories of 6-8 items each.
+   Use candidate's provided skills as foundation.
 
-5. TOTAL WORD COUNT:
+5. CERTIFICATIONS: Include exactly as provided. Never invent.
+
+6. PROJECTS: If included, each project needs:
+   - Project name
+   - Tech stack used
+   - 2 bullet points with metrics and impact
+
+7. WORD COUNT:
    - 2-page resume: 900-1,100 words
    - 3-page resume: 1,400-1,700 words
 """
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SAFE JSON EXTRACTOR (shared utility)
+# SECTOR AWARENESS RULES
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_sector_rules(candidate_sector: str, target_sector: str,
+                     target_company: str) -> str:
+    same_sector = (candidate_sector == target_sector or
+                   candidate_sector == "general" or
+                   target_sector == "general")
+
+    base_rules = f"""
+CRITICAL HONESTY AND SECTOR RULES — NEVER VIOLATE:
+
+1. TARGET COMPANY NAME RULE:
+   - NEVER write the target company name ({target_company}) inside any
+     bullet point or summary UNLESS the candidate actually worked there.
+   - Injecting the target company name into bullets where the candidate
+     did not work there is resume fraud. Do not do it.
+
+2. SECTOR INTEGRITY:
+   - Candidate sector: {candidate_sector.upper()}
+   - Target company sector: {target_sector.upper()}
+"""
+
+    if same_sector:
+        base_rules += """
+   - Sectors are compatible. You may use industry terminology from
+     the JD naturally within the candidate's experience.
+"""
+    else:
+        base_rules += f"""
+   - SECTORS DIFFER. Do NOT inject {target_sector.upper()}-specific
+     jargon into the candidate's {candidate_sector.upper()} experience.
+   - Instead highlight TRANSFERABLE SKILLS:
+     * Leadership and team scale
+     * System scale and reliability metrics
+     * Process improvement percentages
+     * Cross-functional collaboration
+     * Delivery and execution metrics
+   - For PROJECTS: generate projects realistic for a
+     {candidate_sector.upper()} professional at their seniority level.
+     Use technologies natural to their domain, not the target domain.
+"""
+
+    base_rules += """
+3. FABRICATION RULE:
+   - Never invent companies, certifications, or technologies not provided.
+   - Never imply the candidate worked somewhere they did not.
+   - Never add years of experience beyond what the dates show.
+   - For projects: generate realistic projects a person in their role
+     and company would actually work on. Must be defensible in interview.
+"""
+    return base_rules
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SMART PROJECT GENERATOR
+# ─────────────────────────────────────────────────────────────────────────────
+
+def generate_projects_prompt(employment: list, candidate_sector: str,
+                              target_company: str, target_job_title: str,
+                              jd: str, years_exp: int) -> str:
+    """
+    Builds the prompt section for AI-generated notable projects.
+    Projects are based on the candidate's actual role and company,
+    not fabricated to match the target company's domain.
+    """
+
+    if not employment:
+        return ""
+
+    most_recent = employment[0]
+    current_title = most_recent.get("title", "")
+    current_company = most_recent.get("company", "")
+
+    seniority = "junior" if years_exp < 3 else \
+                "mid-level" if years_exp < 6 else \
+                "senior" if years_exp < 10 else "principal/staff"
+
+    return f"""
+NOTABLE PROJECTS GENERATION INSTRUCTIONS:
+Generate 2 notable projects for this candidate. Follow these rules strictly:
+
+CANDIDATE CONTEXT:
+  - Current Role: {current_title} at {current_company}
+  - Sector: {candidate_sector.upper()}
+  - Seniority: {seniority} ({years_exp} years experience)
+  - Applying for: {target_job_title} at {target_company}
+
+PROJECT RULES:
+1. Projects MUST be realistic for a {seniority} {current_title}
+   working at a company like {current_company}.
+2. Use technologies natural to their role and sector — not the target
+   company's tech stack unless they overlap with the candidate's domain.
+3. Projects should show initiative BEYOND their normal job duties —
+   internal tools they built, automation they created, systems they
+   improved on their own time or as side initiatives.
+4. Each project must have 2 bullet points with real metrics.
+5. Projects must be defensible in a technical interview — a real person
+   in this role could explain them in detail.
+6. DO NOT generate projects that require knowledge the candidate
+   wouldn't have based on their role and sector.
+7. Projects should highlight skills that transfer to the target role
+   without fabricating cross-sector expertise.
+
+EXAMPLE of a GOOD project for a Software Engineer at a healthcare company
+applying to a bank:
+  - "Patient Data Analytics Dashboard" using Python and React — shows
+    full-stack skills, data handling, internal tooling — transferable.
+
+EXAMPLE of a BAD project for the same person:
+  - "Algorithmic Trading Engine" — they work in healthcare, this is
+    fabricated finance expertise. Do not do this.
+
+Include projects in the JSON output under the "projects" key.
+"""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SAFE JSON EXTRACTOR
 # ─────────────────────────────────────────────────────────────────────────────
 
 def extract_json(raw: str) -> dict:
-    """Strips markdown fences and extracts the outermost JSON object."""
     cleaned = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
     start = cleaned.find("{")
     end = cleaned.rfind("}") + 1
     if start == -1 or end == 0:
-        raise ValueError(f"No valid JSON found. Raw output:\n{raw[:500]}")
+        raise ValueError(f"No valid JSON found. Raw:\n{raw[:500]}")
     return json.loads(cleaned[start:end])
 
 
@@ -190,46 +381,113 @@ def extract_json(raw: str) -> dict:
 
 def step1_specialist_writer(payload: dict) -> str:
     company = payload.get("company_target", "GENERAL")
-    company_prompt = COMPANY_STYLE_PROMPTS.get(company, COMPANY_STYLE_PROMPTS["GENERAL"])
+    company_prompt = COMPANY_STYLE_PROMPTS.get(
+        company, COMPANY_STYLE_PROMPTS["GENERAL"])
     years_exp = payload.get("years_experience", 4)
     jd = payload.get("job_description", "")
     workflow = payload.get("workflow", "tailor")
+    user_skills = payload.get("skills", "")
+    certifications = payload.get("certifications", [])
+    target_job_title = payload.get("target_job_title", "")
+    include_projects = payload.get("include_projects", False)
+
+    # Detect sectors
+    candidate_text = payload.get("existing_resume_text", "")
+    if not candidate_text and payload.get("employment"):
+        candidate_text = " ".join([
+            f"{e.get('title', '')} {e.get('company', '')}"
+            for e in payload.get("employment", [])
+        ])
+    candidate_sector = detect_sector(candidate_text)
+    target_sector = detect_sector(jd + " " + company)
+    sector_rules = get_sector_rules(candidate_sector, target_sector, company)
 
     if workflow == "scratch":
-        num_jobs = len(payload.get("employment", []))
+        employment = payload.get("employment", [])
+        num_jobs = len(employment) if employment else 1
+        calculated_years = calculate_years_from_jobs(employment)
+        years_exp = max(years_exp, calculated_years)
     else:
         num_jobs = 3
+        employment = []
 
     density_rules = get_density_rules(years_exp, max(num_jobs, 1))
+
+    # Projects prompt
+    projects_prompt = ""
+    if include_projects and workflow == "scratch":
+        projects_prompt = generate_projects_prompt(
+            employment, candidate_sector, company,
+            target_job_title or "the target role", jd, years_exp
+        )
+
+    # Certifications block
+    cert_block = ""
+    if certifications:
+        if isinstance(certifications, list):
+            cert_lines = "\n".join([
+                f"  - {c.get('name', '')} | "
+                f"{c.get('issuer', '')} | {c.get('year', '')}"
+                for c in certifications if c.get("name")
+            ])
+        else:
+            cert_lines = str(certifications)
+        cert_block = f"""
+CERTIFICATIONS (include accurately — never alter or invent):
+{cert_lines}
+"""
+
+    # Skills block
+    skills_block = ""
+    if user_skills:
+        skills_block = f"""
+CANDIDATE'S ACTUAL SKILLS (use as foundation):
+{user_skills}
+"""
+
+    # Target job title instruction
+    title_instruction = ""
+    if target_job_title:
+        title_instruction = f"""
+TARGET JOB TITLE: {target_job_title}
+- Open the Professional Summary with this exact title.
+- Use this title as the lens for all keyword and skill alignment.
+"""
 
     if workflow == "tailor":
         source_material = f"""
 SOURCE MATERIAL (Existing Resume):
 {payload.get('existing_resume_text', '')}
+{cert_block}
+{skills_block}
 """
-        task_instruction = """
+        task_instruction = f"""
 TASK: Tailor this existing resume. You MUST:
-- Preserve all real company names, job titles, and dates EXACTLY as written.
-- Realign all bullet points to the target JD and company style.
-- Rewrite weak bullets to meet the formula. Add bullets to hit density targets.
-- Do NOT invent new employers or change job titles.
+- Preserve ALL company names, job titles, and dates EXACTLY as written.
+- Rewrite bullets to be stronger, metric-driven, and JD-aligned.
+- Add bullets to hit density targets if needed.
+- Candidate has {years_exp} years experience — reflect this accurately.
+- Do NOT invent employers, change titles, or fabricate experience.
+- Do NOT inject target company name into bullets unless candidate worked there.
+{title_instruction}
 """
     else:
         contact = payload.get("contact", {})
-        employment = payload.get("employment", [])
         education = payload.get("education", [])
 
         emp_block = "\n".join([
-            f"  - {e.get('title')} at {e.get('company')} | {e.get('start_date')} - {e.get('end_date')}"
+            f"  - {e.get('title', '')} at {e.get('company', '')} | "
+            f"{e.get('start_date', '')} - {e.get('end_date', '')}"
             for e in employment
         ])
         edu_block = "\n".join([
-            f"  - {e.get('degree')} in {e.get('major')}, {e.get('school')} ({e.get('grad_year')})"
+            f"  - {e.get('degree', '')} in {e.get('major', '')}, "
+            f"{e.get('school', '')} ({e.get('grad_year', '')})"
             for e in education
         ])
 
         source_material = f"""
-SOURCE MATERIAL (Structural Logistics - PRESERVE EXACTLY):
+SOURCE MATERIAL (preserve ALL of this exactly):
 CONTACT:
   Name: {contact.get('name', '')}
   Email: {contact.get('email', '')}
@@ -237,28 +495,48 @@ CONTACT:
   LinkedIn: {contact.get('linkedin', '')}
   Location: {contact.get('location', '')}
 
-EMPLOYMENT (use these companies, titles, and dates verbatim):
+EMPLOYMENT (verbatim — never change):
 {emp_block}
 
-EDUCATION:
+EDUCATION (verbatim):
 {edu_block}
+{cert_block}
+{skills_block}
 """
-        task_instruction = """
-TASK: Build a resume FROM SCRATCH. You MUST:
+        task_instruction = f"""
+TASK: Build resume FROM SCRATCH using structural data above. You MUST:
 - Use ALL company names, job titles, and dates EXACTLY as provided.
-- Construct ALL professional content from scratch.
-- Tailor every word to the Job Description and company style.
-- Infer plausible, high-impact achievements consistent with the title and company.
+- Candidate has {years_exp} years experience. Reflect THIS — not the JD requirement.
+- Construct all bullets tailored to JD and company style.
+- Use candidate's actual skills as foundation for skills section.
+- Include all certifications exactly as provided.
+- Apply sector rules — do not fabricate cross-sector experience.
+{title_instruction}
+{projects_prompt}
 """
 
-    system_prompt = f"""You are the world's most elite resume writer, trained exclusively on
-resumes that achieved interview callbacks at FAANG and Fortune 50 companies.
-You write with surgical precision, metric-first language, and zero filler.
+    system_prompt = f"""You are the world's most elite resume writer, trained exclusively
+on resumes that achieved callbacks at FAANG and Fortune 50 companies.
+You write with surgical precision, metric-first language, and absolute honesty.
+You never fabricate experience. You never inject false company associations.
+You highlight real transferable value rather than inventing fake matches.
 
 {company_prompt}
-
 {density_rules}
+{sector_rules}
 """
+
+    # Build JSON schema based on whether projects are included
+    projects_schema = ""
+    if include_projects:
+        projects_schema = """
+  "projects": [
+    {
+      "name": "...",
+      "tech_stack": "...",
+      "bullets": ["bullet with metric", "bullet with metric"]
+    }
+  ],"""
 
     user_prompt = f"""
 {source_material}
@@ -268,38 +546,31 @@ TARGET JOB DESCRIPTION:
 
 {task_instruction}
 
-OUTPUT FORMAT: Return a valid JSON object ONLY. No markdown. No explanation. No preamble.
+OUTPUT: Valid JSON only. No markdown. No explanation.
 
 {{
   "contact": {{
-    "name": "...",
-    "email": "...",
-    "phone": "...",
-    "linkedin": "...",
-    "location": "..."
+    "name": "...", "email": "...", "phone": "...",
+    "linkedin": "...", "location": "..."
   }},
-  "professional_summary": "5-sentence summary as a single paragraph string.",
+  "professional_summary": "Exactly 5 sentences as single paragraph.",
   "experience": [
     {{
-      "company": "...",
-      "title": "...",
-      "start_date": "...",
-      "end_date": "...",
-      "bullets": ["bullet 1", "bullet 2", ...]
+      "company": "...", "title": "...",
+      "start_date": "...", "end_date": "...",
+      "bullets": ["bullet 1", "bullet 2"]
     }}
   ],
   "education": [
-    {{
-      "school": "...",
-      "degree": "...",
-      "major": "...",
-      "grad_year": "..."
-    }}
+    {{"school": "...", "degree": "...", "major": "...", "grad_year": "..."}}
   ],
+  "certifications": [
+    {{"name": "...", "issuer": "...", "year": "..."}}
+  ],{projects_schema}
   "skills": {{
-    "category_1_name": ["skill", "skill", ...],
-    "category_2_name": ["skill", "skill", ...],
-    "category_3_name": ["skill", "skill", ...]
+    "category_1": ["skill", "skill"],
+    "category_2": ["skill", "skill"],
+    "category_3": ["skill", "skill"]
   }}
 }}
 """
@@ -321,49 +592,102 @@ OUTPUT FORMAT: Return a valid JSON object ONLY. No markdown. No explanation. No 
 def step2_faang_critic(step1_output: str, payload: dict) -> str:
     jd = payload.get("job_description", "")
     company = payload.get("company_target", "GENERAL")
-    company_prompt = COMPANY_STYLE_PROMPTS.get(company, COMPANY_STYLE_PROMPTS["GENERAL"])
+    company_prompt = COMPANY_STYLE_PROMPTS.get(
+        company, COMPANY_STYLE_PROMPTS["GENERAL"])
+    years_exp = payload.get("years_experience", 4)
+    target_job_title = payload.get("target_job_title", "")
 
-    system_prompt = """You are the harshest, most exacting FAANG resume critic alive.
-You have personally reviewed 50,000+ resumes at Google, Amazon, and Meta.
-You hate: vague language, weak verbs, AI-sounding filler, missing metrics,
-and bullets that don't prove direct personal impact.
+    candidate_text = payload.get("existing_resume_text", "")
+    if not candidate_text and payload.get("employment"):
+        candidate_text = " ".join([
+            f"{e.get('title', '')} {e.get('company', '')}"
+            for e in payload.get("employment", [])
+        ])
+    candidate_sector = detect_sector(candidate_text)
+    target_sector = detect_sector(jd + " " + company)
+    sector_rules = get_sector_rules(candidate_sector, target_sector, company)
 
-Your job: tear apart the draft below and rebuild it to perfection.
+    # Extract top 10 JD keywords for gap analysis
+    jd_words = re.findall(r'\b[A-Za-z][A-Za-z+#.]{2,}\b', jd)
+    jd_freq = {}
+    for word in jd_words:
+        w = word.lower()
+        jd_freq[w] = jd_freq.get(w, 0) + 1
+    stop_words = {
+        "the", "and", "for", "with", "that", "this", "will", "are",
+        "have", "from", "our", "you", "your", "not", "but", "all",
+        "can", "been", "their", "they", "what", "who", "how", "when"
+    }
+    top_keywords = [
+        w for w, c in sorted(jd_freq.items(), key=lambda x: -x[1])
+        if w not in stop_words
+    ][:15]
+    keyword_list = ", ".join(top_keywords)
+
+    system_prompt = f"""You are the harshest, most exacting FAANG resume critic alive.
+You have reviewed 50,000+ resumes at Google, Amazon, and Meta.
+You are also an expert in resume ethics — you never fabricate experience.
+
+{sector_rules}
+
 Return ONLY improved JSON. Same schema. No markdown. No explanation."""
 
     user_prompt = f"""
-COMPANY TARGET: {company}
+COMPANY: {company}
+TARGET JOB TITLE: {target_job_title or "Not specified"}
+CANDIDATE YEARS: {years_exp} (do not change this in the summary)
 {company_prompt}
+
+TOP JD KEYWORDS TO VERIFY ARE IN RESUME:
+{keyword_list}
 
 JOB DESCRIPTION:
 {jd}
 
-DRAFT RESUME JSON TO CRITIQUE AND UPGRADE:
+DRAFT RESUME JSON:
 {step1_output}
 
-YOUR CRITIQUE CHECKLIST (fix ALL of these):
+CRITIQUE CHECKLIST — fix ALL:
 
-1. WEAK VERBS - Replace immediately:
-   BAD: "Helped", "Assisted", "Supported", "Worked on", "Participated in",
+1. WEAK VERBS — Replace:
+   BAD: "Helped", "Assisted", "Supported", "Worked on", "Participated",
         "Was responsible for", "Contributed to", "Involved in"
-   GOOD: "Architected", "Engineered", "Spearheaded", "Accelerated", "Slashed",
-         "Drove", "Launched", "Negotiated", "Scaled", "Orchestrated", "Pioneered"
+   GOOD: "Architected", "Engineered", "Spearheaded", "Accelerated",
+         "Slashed", "Drove", "Launched", "Scaled", "Orchestrated"
 
-2. AI FILLER PHRASES - Delete on sight:
-   "Leveraged synergies", "Demonstrated expertise in", "Utilized best practices",
-   "Passionate about", "Results-driven", "Detail-oriented", "Team player",
+2. AI FILLER — Delete:
+   "Leveraged synergies", "Demonstrated expertise", "Utilized best practices",
+   "Passionate about", "Results-driven", "Detail-oriented",
    "Proven track record", "Dynamic professional", "Seeking to"
 
-3. MISSING METRICS - Every bullet needs a number. If a bullet has none, add one.
+3. MISSING METRICS — Every bullet needs a number. Add one if missing.
 
-4. JD KEYWORD GAPS - If a required skill in the JD is missing from the resume,
-   inject it naturally into the most relevant bullet or skills section.
+4. JD KEYWORD GAP ANALYSIS:
+   Check these top keywords from the JD: {keyword_list}
+   For each keyword NOT in the resume:
+   - If it matches the candidate's sector and experience → inject naturally
+   - If it does NOT match their background → skip it (do not fabricate)
 
-5. SUMMARY QUALITY - Must NOT start with "I". Must NOT use filler phrases above.
+5. SUMMARY:
+   - Must open with target job title: "{target_job_title or 'their job title'}"
+   - Must reflect {years_exp} years accurately
+   - Must NOT start with "I"
+   - Must NOT use filler phrases
+   - Exactly 5 sentences
 
-6. DENSITY CHECK - If any job is below the minimum bullet count, add new bullets.
+6. DENSITY — Add bullets if any job is below minimum.
 
-Return the corrected, perfected JSON. Same schema as input. No markdown fences.
+7. FABRICATION SCAN:
+   - Remove any bullet implying candidate worked at {company} if they did not
+   - Remove any cross-sector jargon not matching candidate's background
+   - Verify projects (if present) are realistic for candidate's role
+
+8. CERTIFICATIONS — Preserve exactly. Never alter.
+
+9. PROJECTS — If present, verify each has 2 metric-driven bullets
+   and is realistic for the candidate's actual role and company.
+
+Return perfected JSON. Same schema. No markdown.
 """
 
     response = client.messages.create(
@@ -383,45 +707,59 @@ Return the corrected, perfected JSON. Same schema as input. No markdown fences.
 def step3_ats_guard(step2_output: str, payload: dict) -> dict:
     years_exp = payload.get("years_experience", 4)
     page_target = 3 if years_exp >= 8 else 2
+    company = payload.get("company_target", "GENERAL")
 
-    system_prompt = """You are an elite ATS compliance officer and proofreader
-with deep knowledge of Applicant Tracking Systems (Greenhouse, Workday, Lever, Taleo).
-Your job is the final quality gate before a resume is sent to a recruiter.
-Return ONLY clean JSON. Same schema. No markdown."""
+    system_prompt = """You are an elite ATS compliance officer, proofreader,
+and resume ethics officer. You are the final gate before a resume
+reaches a real recruiter. Return ONLY clean JSON. Same schema. No markdown."""
 
     user_prompt = f"""
 PAGE TARGET: {page_target} pages
+TARGET COMPANY: {company}
 
-RESUME JSON FROM PREVIOUS STEP:
+RESUME JSON:
 {step2_output}
 
-FINAL QUALITY CHECKLIST:
+FINAL CHECKLIST:
 
-1. GRAMMAR & SPELLING - Correct all errors. Tense consistency:
+1. GRAMMAR & TENSE:
    - Current job: present tense ("Leads", "Manages", "Drives")
    - Past jobs: past tense ("Led", "Managed", "Drove")
 
-2. WORD REPETITION - No action verb may appear more than twice across the entire resume.
+2. VERB REPETITION:
+   - No action verb more than twice across entire resume.
+   - Replace duplicates with strong synonyms.
 
-3. ATS SAFETY RULES:
-   - No special characters: no arrows, stars, checkmarks (these break parsers)
-   - Use plain ASCII hyphens only
-   - Spell out all acronyms at first use: "Machine Learning (ML)"
+3. ATS SAFETY:
+   - No special characters: no arrows, stars, checkmarks
+   - Spell out acronyms at first use: "Machine Learning (ML)"
+   - Plain ASCII only
 
-4. BULLET LENGTH CONTROL:
-   - Each bullet: 1-2 lines at 10pt font, roughly 100 characters max
-   - Split any bullet that exceeds this into two bullets
+4. BULLET LENGTH:
+   - Each bullet: ~100 characters max at 10pt font
+   - Split bullets over limit into two
    - No bullet under 60 characters
 
-5. SUMMARY: Must be exactly 5 sentences. Roughly 75-85 words total.
+5. SUMMARY: Exactly 5 sentences, 75-85 words total.
 
-6. SKILLS DEDUPLICATION: Each skill category should have 6-8 items.
+6. SKILLS: 6-8 items per category. No duplicates.
 
-7. DENSITY VERIFICATION:
-   - If page_target is 3 and total word count is under 1,400 — expand bullets
-   - If page_target is 2 and total word count is under 900 — expand bullets
+7. CERTIFICATIONS: Preserve exactly. Never alter or remove.
 
-Return the final, flawless JSON object. This is the production output.
+8. PROJECTS: If present, ensure each has exactly 2 bullet points
+   with metrics. Verify they are realistic for the candidate's role.
+
+9. FABRICATION FINAL SCAN:
+   - Any bullet implying candidate worked at {company} when they
+     did not → rewrite to remove false implication.
+   - Any invented certifications → remove.
+   - Any cross-sector jargon not matching candidate background → remove.
+
+10. DENSITY:
+    - 3-page + under 1,400 words = expand bullets
+    - 2-page + under 900 words = expand bullets
+
+Return the final, flawless, honest JSON.
 """
 
     response = client.messages.create(
@@ -443,31 +781,56 @@ def run_pipeline(payload: dict) -> dict:
 
     print(f"[PIPELINE] Starting | Company: {payload.get('company_target')} | "
           f"Workflow: {payload.get('workflow')} | "
-          f"Years: {payload.get('years_experience')}")
+          f"Years: {payload.get('years_experience')} | "
+          f"Projects: {payload.get('include_projects', False)}")
 
-    # ── STEP 1: Specialist Writer ─────────────────────────────────────────
+    # Auto-calculate years for scratch workflow
+    if payload.get("workflow") == "scratch":
+        employment = payload.get("employment", [])
+        if employment:
+            calculated = calculate_years_from_jobs(employment)
+            provided = payload.get("years_experience", 4)
+            payload["years_experience"] = max(provided, calculated)
+            print(f"[PIPELINE] Years: provided={provided}, "
+                  f"calculated={calculated}, "
+                  f"using={payload['years_experience']}")
+
+    # Detect and log sectors
+    candidate_text = payload.get("existing_resume_text", "")
+    if not candidate_text and payload.get("employment"):
+        candidate_text = " ".join([
+            f"{e.get('title', '')} {e.get('company', '')}"
+            for e in payload.get("employment", [])
+        ])
+    jd = payload.get("job_description", "")
+    company = payload.get("company_target", "GENERAL")
+    candidate_sector = detect_sector(candidate_text)
+    target_sector = detect_sector(jd + " " + company)
+    print(f"[PIPELINE] Sectors: candidate={candidate_sector}, "
+          f"target={target_sector}")
+
+    # ── STEP 1 ───────────────────────────────────────────────────────────
     print("[PIPELINE] Step 1: Specialist Writer...")
     s1_output = step1_specialist_writer(payload)
-    print(f"[PIPELINE] Step 1 complete. Output: {len(s1_output)} chars")
+    print(f"[PIPELINE] Step 1 complete. {len(s1_output)} chars")
 
-    # ── STEP 2: FAANG Critic ─────────────────────────────────────────────
+    # ── STEP 2 ───────────────────────────────────────────────────────────
     print("[PIPELINE] Step 2: FAANG Critic...")
     try:
         s2_output = step2_faang_critic(s1_output, payload)
-        # Validate Step 2 returned parseable JSON before proceeding
         extract_json(s2_output)
-        print(f"[PIPELINE] Step 2 complete. Output: {len(s2_output)} chars")
+        print(f"[PIPELINE] Step 2 complete. {len(s2_output)} chars")
     except Exception as e:
-        print(f"[PIPELINE] Step 2 failed ({e}). Falling back to Step 1 output.")
+        print(f"[PIPELINE] Step 2 failed ({e}). Using Step 1 output.")
         s2_output = s1_output
 
-    # ── STEP 3: ATS Guard ────────────────────────────────────────────────
-    print("[PIPELINE] Step 3: ATS Guard & Proofreader...")
+    # ── STEP 3 ───────────────────────────────────────────────────────────
+    print("[PIPELINE] Step 3: ATS Guard...")
     try:
         final_data = step3_ats_guard(s2_output, payload)
-        print("[PIPELINE] Step 3 complete. Final JSON parsed successfully.")
+        print("[PIPELINE] Step 3 complete.")
     except Exception as e:
-        print(f"[PIPELINE] Step 3 failed ({e}). Falling back to Step 2 output.")
+        print(f"[PIPELINE] Step 3 failed ({e}). Using Step 2 output.")
         final_data = extract_json(s2_output)
 
     years_exp = payload.get("years_experience", 4)
@@ -486,5 +849,9 @@ def run_pipeline(payload: dict) -> dict:
             "step1_chars": len(s1_output),
             "step2_chars": len(s2_output),
             "step3_complete": True,
+            "years_experience_used": payload.get("years_experience", 4),
+            "candidate_sector": candidate_sector,
+            "target_sector": target_sector,
+            "projects_included": payload.get("include_projects", False)
         }
     }
