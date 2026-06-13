@@ -562,15 +562,20 @@ def run_pipeline(payload: dict) -> dict:
     page_target = 3 if years_exp >= 8 else 2
 
     return {
-        "success": True,
-        "resume_data": final_data,
-        "page_target": page_target,
-        "company_target": payload.get("company_target", "GENERAL"),
-        "debug": {
-            "step1_chars": len(s1_output),
-            "step2_chars": len(s2_output),
-        }
+        from resume_renderer import render_resume_html
+html = render_resume_html(final_data, page_target)
+
+return {
+    "success": True,
+    "resume_data": final_data,
+    "page_target": page_target,
+    "company_target": payload.get("company_target", "GENERAL"),
+    "html": html,
+    "debug": {
+        "step1_chars": len(s1_output),
+        "step2_chars": len(s2_output),
     }
+}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
