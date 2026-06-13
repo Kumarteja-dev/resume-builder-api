@@ -195,20 +195,46 @@ def calculate_years_from_jobs(employment: list) -> int:
 # PAGE DENSITY RULES
 # ─────────────────────────────────────────────────────────────────────────────
 
+def compute_page_target(years_experience: int, num_jobs: int) -> int:
+    """
+    Determines page target based on years of experience as the primary
+    signal, with job count as a secondary adjustment for senior
+    consultants/contractors with many engagements.
+    """
+    base_pages = 3 if years_experience >= 8 else 2
+
+    if num_jobs >= 4 and years_experience >= 8:
+        # Senior consultant pattern - cap at 3, tiering handles density
+        return 3
+    elif num_jobs > 2 and years_experience < 8:
+        # Many short stints but limited experience - stay at 2,
+        # tiering compresses older/shorter roles naturally
+        return 2
+    else:
+        return base_pages
+
+
 def get_density_rules(years_experience: int, num_jobs: int) -> str:
-    if years_experience >= 8:
+    page_target = compute_page_target(years_experience, num_jobs)
+
+    if page_target == 3:
         scope = "3 FULL PAGES (Senior/Executive level)"
     else:
         scope = "2 FULL PAGES (Mid-level professional)"
 
+    # Tiered bullet counts - extended to support up to 4 jobs.
+    # Most recent role always gets full depth; older roles compress.
+    tier_counts = ["9-10", "7-8", "5-6", "4-5"]
+
     job_rules = []
     for i in range(num_jobs):
+        tier = tier_counts[i] if i < len(tier_counts) else "3-4"
         if i == 0:
-            job_rules.append(f"  - Job 1 (Most Recent): EXACTLY 9-10 bullet points.")
-        elif i == 1:
-            job_rules.append(f"  - Job 2: EXACTLY 7-8 bullet points.")
+            job_rules.append(f"  - Job 1 (Most Recent): EXACTLY {tier} bullet points.")
+        elif i == len(tier_counts) - 1 or i >= 3:
+            job_rules.append(f"  - Job {i+1} (Older Role): EXACTLY {tier} bullet points.")
         else:
-            job_rules.append(f"  - Job {i+1} (Older Role): EXACTLY 5-6 bullet points.")
+            job_rules.append(f"  - Job {i+1}: EXACTLY {tier} bullet points.")
 
     return f"""
 MANDATORY PAGE DENSITY RULES:
@@ -220,7 +246,7 @@ TARGET: {scope}
    - Include 2-3 hard metrics
    - End with what they bring to the target company
 
-2. PER-JOB BULLET COUNTS:
+2. PER-JOB BULLET COUNTS (tiered by recency - most recent gets most depth):
 {chr(10).join(job_rules)}
 
 3. EVERY BULLET MUST:
@@ -706,7 +732,8 @@ Return perfected JSON. Same schema. No markdown.
 
 def step3_ats_guard(step2_output: str, payload: dict) -> dict:
     years_exp = payload.get("years_experience", 4)
-    page_target = 3 if years_exp >= 8 else 2
+    num_jobs = len(payload.get("employment", [])) or 1
+    page_target = compute_page_target(years_exp, num_jobs)
     company = payload.get("company_target", "GENERAL")
 
     system_prompt = """You are an elite ATS compliance officer, proofreader,
@@ -851,7 +878,8 @@ def run_pipeline(payload: dict) -> dict:
         project["bullets"] = cleaned
 
     years_exp = payload.get("years_experience", 4)
-    page_target = 3 if years_exp >= 8 else 2
+    num_jobs = len(payload.get("employment", [])) or 1
+    page_target = compute_page_target(years_exp, num_jobs)
 
     from resume_renderer import render_resume_html
     html = render_resume_html(final_data, page_target)
@@ -867,6 +895,7 @@ def run_pipeline(payload: dict) -> dict:
             "step2_chars": len(s2_output),
             "step3_complete": True,
             "years_experience_used": payload.get("years_experience", 4),
+            "num_jobs": num_jobs,
             "candidate_sector": candidate_sector,
             "target_sector": target_sector,
             "projects_included": payload.get("include_projects", False)
