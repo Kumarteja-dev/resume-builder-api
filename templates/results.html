@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Your Elite Resume</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                  Helvetica, Arial, sans-serif;
@@ -17,312 +17,344 @@
   /* ===================== LOADING SCREEN ===================== */
   .loading-wrap {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    padding: 2rem 1.5rem;
+    padding: 2rem 1rem;
+    background: #0f0e14;
+    position: relative;
+    overflow: hidden;
   }
+  .mesh { position: absolute; inset: 0; opacity: 0.6; }
+  .mesh-blob {
+    position: absolute; border-radius: 50%; filter: blur(70px);
+    animation: mesh-move 14s ease-in-out infinite;
+  }
+  .mb1 { width: 320px; height: 320px; background: #534AB7; top: -100px; left: -60px; animation-delay: 0s; }
+  .mb2 { width: 280px; height: 280px; background: #1D9E75; bottom: -90px; right: -50px; animation-delay: 4s; }
+  .mb3 { width: 240px; height: 240px; background: #D85A30; top: 35%; right: 5%; animation-delay: 8s; opacity: 0.6; }
+  .mb4 { width: 200px; height: 200px; background: #D4537E; bottom: 15%; left: 5%; animation-delay: 11s; opacity: 0.5; }
+  @keyframes mesh-move {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(30px,-30px) scale(1.15); }
+    66% { transform: translate(-20px,20px) scale(0.9); }
+  }
+
+  .particle {
+    position: absolute; border-radius: 50%;
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    from { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
+    15% { opacity: 0.8; }
+    85% { opacity: 0.8; }
+    to { transform: translateY(-700px) translateX(60px) scale(1.2); opacity: 0; }
+  }
+
   .loading-card {
-    background: #ffffff;
-    border-radius: 20px;
-    padding: 3rem 2.75rem;
-    max-width: 460px;
+    position: relative;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(32px) saturate(1.6);
+    border-radius: 28px;
+    padding: 3.5rem 3rem;
+    max-width: 440px;
     width: 100%;
-    box-shadow: 0 8px 40px rgba(40, 38, 32, 0.06);
-    border: 1px solid #efeeec;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.1);
   }
-  .badge-row {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1.5rem;
-  }
+
   .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #f1edff;
-    color: #5b4fc4;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 6px 14px;
-    border-radius: 999px;
-    letter-spacing: 0.02em;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: linear-gradient(135deg, rgba(175,169,236,0.25), rgba(93,202,165,0.25));
+    background-size: 200% 200%;
+    animation: badge-shimmer 4s ease infinite;
+    color: #CECBF6; font-size: 11px; font-weight: 700;
+    padding: 7px 16px; border-radius: 999px; letter-spacing: 0.08em;
+    margin: 0 auto 2rem; width: fit-content;
+    border: 1px solid rgba(255,255,255,0.12);
+    text-transform: uppercase;
   }
-  .spinner-wrap {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1.5rem;
+  @keyframes badge-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
-  .spinner {
-    width: 52px;
-    height: 52px;
-    border: 3px solid #ece9e4;
-    border-top-color: #2c2c2a;
-    border-radius: 50%;
-    animation: spin 0.9s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+  .badge .badge-icon {
+    font-size: 13px; animation: sparkle 1.8s ease-in-out infinite;
+    display: inline-block;
   }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+  @keyframes sparkle {
+    0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    50% { opacity: 0.4; transform: scale(0.8) rotate(20deg); }
   }
+
+  .orb-center { display: flex; justify-content: center; margin-bottom: 2.25rem; }
+  .ring-wrap { position: relative; width: 100px; height: 100px; }
+  .ring { position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid transparent; }
+  .ring1 {
+    border-top-color: #AFA9EC; border-right-color: #AFA9EC;
+    animation: spin 1.8s cubic-bezier(0.5,0.1,0.5,0.9) infinite;
+    box-shadow: 0 0 20px rgba(175,169,236,0.4);
+  }
+  .ring2 {
+    inset: 13px; border-bottom-color: #5DCAA5; border-left-color: #5DCAA5;
+    animation: spin 1.3s cubic-bezier(0.5,0.1,0.5,0.9) infinite reverse;
+    box-shadow: 0 0 18px rgba(93,202,165,0.4);
+  }
+  .ring3 {
+    inset: 26px; border-top-color: #F0997B; border-left-color: #F0997B;
+    animation: spin 2.4s linear infinite;
+    box-shadow: 0 0 16px rgba(240,153,123,0.4);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ring-center {
+    position: absolute; inset: 35px; border-radius: 50%;
+    background: linear-gradient(135deg, #534AB7, #1D9E75, #D85A30, #534AB7);
+    background-size: 300% 300%;
+    animation: gradient-rotate 4s ease infinite;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 24px rgba(83,74,183,0.5);
+  }
+  @keyframes gradient-rotate {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+  }
+  .ring-center svg {
+    width: 22px; height: 22px;
+    animation: pulse-icon 1.6s ease-in-out infinite;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+  }
+  @keyframes pulse-icon {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.65; transform: scale(0.9); }
+  }
+
   .loading-title {
-    font-size: 21px;
-    font-weight: 700;
-    color: #2c2c2a;
-    text-align: center;
-    margin-bottom: 6px;
-    letter-spacing: -0.01em;
+    font-size: 24px; font-weight: 700; text-align: center;
+    color: #fff; margin-bottom: 8px; letter-spacing: -0.02em;
   }
   .loading-sub {
-    font-size: 13.5px;
-    color: #8c8a85;
-    text-align: center;
-    margin-bottom: 1.75rem;
-    line-height: 1.5;
+    font-size: 13.5px; color: rgba(255,255,255,0.55);
+    text-align: center; margin-bottom: 2.25rem; line-height: 1.65;
   }
 
   .progress-track {
-    width: 100%;
-    height: 6px;
-    background: #ece9e4;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 6px;
-    position: relative;
+    width: 100%; height: 8px; background: rgba(255,255,255,0.08);
+    border-radius: 8px; overflow: hidden; margin-bottom: 8px; position: relative;
   }
   .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #2c2c2a, #534ab7);
-    border-radius: 6px;
-    width: 8%;
-    transition: width 1.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .progress-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11.5px;
-    color: #b3b1ac;
-    margin-bottom: 2rem;
-    font-weight: 500;
-  }
-
-  .step-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .step-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 13.5px;
-    color: #c2c0bb;
-    transition: color 0.4s ease;
-  }
-  .step-item.active {
-    color: #2c2c2a;
-    font-weight: 600;
-  }
-  .step-item.complete {
-    color: #8c8a85;
-    font-weight: 500;
-  }
-  .step-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid #ece9e4;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.4s ease;
+    height: 100%; border-radius: 8px; width: 8%;
+    background: linear-gradient(90deg, #AFA9EC, #5DCAA5, #F0997B, #AFA9EC);
+    background-size: 300% 100%;
+    animation: gradient-shift 3s linear infinite;
+    transition: width 1.4s cubic-bezier(0.4,0,0.2,1);
     position: relative;
+    box-shadow: 0 0 12px rgba(175,169,236,0.5);
   }
-  /* Default state: icons hidden, plain empty circle */
-  .step-icon .step-check,
-  .step-icon .step-spinner {
-    display: none;
+  .progress-fill::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 30px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7));
+    animation: shine 1.5s ease-in-out infinite;
+  }
+  @keyframes shine {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+  @keyframes gradient-shift { to { background-position: -300% 0; } }
+  .progress-meta {
+    display: flex; justify-content: space-between; font-size: 11.5px;
+    color: rgba(255,255,255,0.4); margin-bottom: 2.25rem;
+    font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
   }
 
-  /* Active step: show spinner, animated border */
+  .step-list { display: flex; flex-direction: column; gap: 12px; }
+  .step-item {
+    display: flex; align-items: center; gap: 12px; font-size: 13.5px;
+    padding: 13px 15px; border-radius: 14px;
+    transition: all 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .step-item.pending { color: rgba(255,255,255,0.35); }
+  .step-item.active {
+    color: #fff; font-weight: 600;
+    background: rgba(175,169,236,0.12);
+    border: 1px solid rgba(175,169,236,0.3);
+    box-shadow: 0 4px 20px rgba(175,169,236,0.15);
+    transform: scale(1.02);
+  }
+  .step-item.complete { color: rgba(255,255,255,0.5); font-weight: 500; }
+
+  .step-icon {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; position: relative;
+  }
+  .step-icon .step-check, .step-icon .step-bolt { display: none; }
+
+  .step-item.pending .step-icon { border: 2px solid rgba(255,255,255,0.12); }
+
   .step-item.active .step-icon {
-    border-color: #ece9e4;
+    background: linear-gradient(135deg, #AFA9EC, #7F77DD);
+    box-shadow: 0 2px 12px rgba(175,169,236,0.5);
   }
-  .step-item.active .step-icon .step-spinner {
-    display: block;
-    width: 22px;
-    height: 22px;
-    border: 2px solid #ece9e4;
-    border-top-color: #2c2c2a;
-    border-radius: 50%;
-    position: absolute;
-    inset: -2px;
-    animation: spin-step 0.8s linear infinite;
+  .step-item.active .step-icon::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid #AFA9EC; border-top-color: transparent; border-right-color: transparent;
+    animation: spin 1s linear infinite; opacity: 0.6;
   }
-  @keyframes spin-step {
-    to { transform: rotate(360deg); }
+  .step-item.active .step-icon .step-bolt {
+    display: block; width: 13px; height: 13px;
   }
+  .step-item.active .step-icon .step-bolt path { fill: #1a1825; }
 
-  /* Completed step: solid fill with checkmark */
-  .step-item.complete .step-icon {
-    border-color: #2c2c2a;
-    background: #2c2c2a;
-  }
-  .step-item.complete .step-icon .step-check {
-    display: block;
-    width: 12px;
-    height: 12px;
-  }
-  .step-item.complete .step-icon .step-check path {
-    stroke: #ffffff;
-  }
+  .step-item.complete .step-icon { background: rgba(255,255,255,0.12); }
+  .step-item.complete .step-icon .step-check { display: block; width: 13px; height: 13px; }
+  .step-item.complete .step-icon .step-check path { stroke: #fff; }
 
   .loading-hint {
-    margin-top: 1.75rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid #f1efec;
-    font-size: 12px;
-    color: #b3b1ac;
-    text-align: center;
-    line-height: 1.6;
+    margin-top: 2.25rem; padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px; color: rgba(255,255,255,0.35);
+    text-align: center; line-height: 1.6;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-weight: 500; letter-spacing: 0.02em;
   }
+  .loading-hint svg { width: 14px; height: 14px; }
+  .loading-hint svg path { stroke: rgba(255,255,255,0.35); }
 
   /* ===================== ERROR SCREEN ===================== */
+  .error-wrap {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 2rem 1rem; background: #0f0e14;
+  }
   .error-card {
-    background: #ffffff;
-    border-radius: 20px;
-    padding: 2.75rem 2.5rem;
-    max-width: 460px;
-    width: 100%;
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(32px) saturate(1.6);
+    border-radius: 28px; padding: 2.75rem 2.5rem; max-width: 440px; width: 100%;
     text-align: center;
-    box-shadow: 0 8px 40px rgba(40, 38, 32, 0.06);
-    border: 1px solid #efeeec;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
   }
   .error-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    background: #fbeaea;
-    color: #c5453a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0 auto 1.25rem;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(226,75,74,0.15); color: #F09595;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 700; margin: 0 auto 1.25rem;
+    border: 1px solid rgba(226,75,74,0.3);
   }
-  .error-title {
-    font-size: 19px;
-    font-weight: 700;
-    color: #2c2c2a;
-    margin-bottom: 8px;
-  }
+  .error-title { font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 8px; }
   .error-message {
-    font-size: 13.5px;
-    color: #8c8a85;
-    line-height: 1.6;
-    margin-bottom: 1.75rem;
+    font-size: 13.5px; color: rgba(255,255,255,0.55);
+    line-height: 1.6; margin-bottom: 1.75rem;
   }
   .retry-btn {
-    background: #2c2c2a;
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 12px 28px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s;
+    background: linear-gradient(135deg, #AFA9EC, #7F77DD);
+    color: #1a1825; border: none; border-radius: 12px;
+    padding: 12px 28px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 4px 16px rgba(175,169,236,0.3);
+    transition: transform 0.15s;
   }
-  .retry-btn:hover { background: #444441; }
+  .retry-btn:hover { transform: scale(1.03); }
 
   /* ===================== RESUME DISPLAY ===================== */
-  #resume-container {
-    display: none;
+  #resume-container { display: none; }
+  .resume-page-bg {
+    background: linear-gradient(135deg, #f5f3ff 0%, #f6f5f3 50%, #f4f2ef 100%);
+    min-height: 100vh;
   }
   .resume-toolbar {
-    position: sticky;
-    top: 0;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(8px);
+    position: sticky; top: 0;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
     border-bottom: 1px solid #ece9e4;
     padding: 14px 24px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    z-index: 10;
+    display: flex; justify-content: center; gap: 10px; z-index: 10;
   }
   .toolbar-btn {
-    background: #2c2c2a;
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 11px 22px;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    background: #2c2c2a; color: #fff; border: none; border-radius: 10px;
+    padding: 11px 22px; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 8px;
     transition: background 0.15s, transform 0.1s;
   }
   .toolbar-btn:hover { background: #444441; }
   .toolbar-btn:active { transform: scale(0.98); }
   .toolbar-btn.secondary {
-    background: transparent;
-    color: #2c2c2a;
-    border: 1px solid #d6d4cf;
+    background: transparent; color: #2c2c2a; border: 1px solid #d6d4cf;
   }
   .toolbar-btn.secondary:hover { background: #f6f5f3; }
   .toolbar-btn svg { width: 15px; height: 15px; }
 
   @media print {
     .resume-toolbar { display: none; }
+    .resume-page-bg { background: none; }
   }
 </style>
 </head>
 <body>
 
 <div id="loading-screen" class="loading-wrap">
+  <div class="mesh">
+    <div class="mesh-blob mb1"></div>
+    <div class="mesh-blob mb2"></div>
+    <div class="mesh-blob mb3"></div>
+    <div class="mesh-blob mb4"></div>
+  </div>
+  <div class="particle" style="width:5px;height:5px;background:#AFA9EC;left:12%;animation-duration:8s;animation-delay:0s;"></div>
+  <div class="particle" style="width:4px;height:4px;background:#5DCAA5;left:78%;animation-duration:10s;animation-delay:2s;"></div>
+  <div class="particle" style="width:6px;height:6px;background:#F0997B;left:48%;animation-duration:9s;animation-delay:4s;"></div>
+  <div class="particle" style="width:3px;height:3px;background:#D4537E;left:88%;animation-duration:7s;animation-delay:1s;"></div>
+  <div class="particle" style="width:4px;height:4px;background:#AFA9EC;left:25%;animation-duration:11s;animation-delay:5s;"></div>
+
   <div class="loading-card">
-    <div class="badge-row">
-      <span class="badge">AI Resume Pipeline</span>
+    <div class="badge">
+      <span class="badge-icon">
+        <svg viewBox="0 0 24 24" fill="none" width="13" height="13"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" fill="#CECBF6"/></svg>
+      </span>
+      AI resume pipeline
     </div>
-    <div class="spinner-wrap">
-      <div class="spinner"></div>
+
+    <div class="orb-center">
+      <div class="ring-wrap">
+        <div class="ring ring1"></div>
+        <div class="ring ring2"></div>
+        <div class="ring ring3"></div>
+        <div class="ring-center">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14 2v6h6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
     </div>
-    <div class="loading-title">Building your elite resume</div>
-    <div class="loading-sub">Three specialist AI passes are crafting and refining your resume for maximum impact.</div>
+
+    <div class="loading-title">Crafting your elite resume</div>
+    <div class="loading-sub">Three specialist AI passes are writing, critiquing, and polishing every detail for maximum impact.</div>
 
     <div class="progress-track">
       <div class="progress-fill" id="progress-fill"></div>
     </div>
     <div class="progress-meta">
-      <span id="progress-pct">8%</span>
-      <span>Estimated 60-90 seconds</span>
+      <span id="progress-pct">8% complete</span>
+      <span>Est. 60-90 sec</span>
     </div>
 
     <div class="step-list">
       <div class="step-item active" id="step-1">
         <span class="step-icon">
-          <span class="step-spinner"></span>
+          <svg class="step-bolt" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
           <svg class="step-check" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
         <span>Specialist writer drafting your resume</span>
       </div>
-      <div class="step-item" id="step-2">
+      <div class="step-item pending" id="step-2">
         <span class="step-icon">
-          <span class="step-spinner"></span>
+          <svg class="step-bolt" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
           <svg class="step-check" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
         <span>FAANG critic sharpening every bullet</span>
       </div>
-      <div class="step-item" id="step-3">
+      <div class="step-item pending" id="step-3">
         <span class="step-icon">
-          <span class="step-spinner"></span>
+          <svg class="step-bolt" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
           <svg class="step-check" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
         <span>ATS guard finalizing formatting</span>
@@ -330,12 +362,13 @@
     </div>
 
     <div class="loading-hint">
-      This usually takes 60-90 seconds. Please don't close this tab.
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="11" width="18" height="11" rx="2" stroke-width="2"/><path d="M7 11V7a5 5 0 0110 0v4" stroke-width="2"/></svg>
+      Please don't close this tab
     </div>
   </div>
 </div>
 
-<div id="error-screen" class="loading-wrap" style="display:none;">
+<div id="error-screen" class="error-wrap" style="display:none;">
   <div class="error-card">
     <div class="error-icon">!</div>
     <div class="error-title">Something went wrong</div>
@@ -347,14 +380,16 @@
 </div>
 
 <div id="resume-container">
-  <div class="resume-toolbar">
-    <button class="toolbar-btn" id="download-btn">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Download as Word
-    </button>
-    <button class="toolbar-btn secondary" onclick="window.location.href='/'">Back to home</button>
+  <div class="resume-page-bg">
+    <div class="resume-toolbar">
+      <button class="toolbar-btn" id="download-btn">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Download as Word
+      </button>
+      <button class="toolbar-btn secondary" onclick="window.location.href='/'">Back to home</button>
+    </div>
+    <div id="resume-html"></div>
   </div>
-  <div id="resume-html"></div>
 </div>
 
 <script>
@@ -383,9 +418,10 @@ function advanceStep() {
       steps[currentStep - 1].el.classList.remove('active');
       steps[currentStep - 1].el.classList.add('complete');
     }
+    steps[currentStep].el.classList.remove('pending');
     steps[currentStep].el.classList.add('active');
     progressFill.style.width = steps[currentStep].pct + '%';
-    progressPct.textContent = steps[currentStep].pct + '%';
+    progressPct.textContent = steps[currentStep].pct + '% complete';
     currentStep++;
   }
 }
@@ -401,11 +437,11 @@ function showError(message) {
 function showResume(html) {
   clearInterval(stepInterval);
   steps.forEach(s => {
-    s.el.classList.remove('active');
+    s.el.classList.remove('active', 'pending');
     s.el.classList.add('complete');
   });
   progressFill.style.width = '100%';
-  progressPct.textContent = '100%';
+  progressPct.textContent = '100% complete';
 
   setTimeout(() => {
     loadingScreen.style.display = 'none';
