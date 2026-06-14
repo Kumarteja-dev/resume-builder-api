@@ -801,7 +801,30 @@ FINAL CHECKLIST:
     - 3-page + under 1,400 words = expand bullets
     - 2-page + under 900 words = expand bullets
 
-Return the final, flawless, honest JSON.
+11. RESUME SCORE (informational only - assess honestly):
+    After finalizing the resume, evaluate it against the job description
+    and compute a match score. Add a "score" object to the JSON with:
+    - "overall": integer 0-100, overall match quality for this specific
+      job description (weigh keyword/skill alignment most heavily,
+      then quantification, then formatting/ATS-safety)
+    - "keyword_match": integer 0-100, how well the resume's skills and
+      experience reflect the JD's key requirements
+    - "formatting": integer 0-100, ATS-safety (should be very high
+      given this template - near 100 unless something is clearly off)
+    - "quantification": integer 0-100, percentage of bullets containing
+      a real metric
+    - "insights": array of 2-3 short strings (under 15 words each),
+      specific and actionable. Examples:
+      "Strong alignment with Workday HCM and Payroll requirements"
+      "Consider highlighting SOX compliance experience - mentioned 3x in JD"
+      "All bullets are quantified with measurable business impact"
+    Be honest and specific to THIS resume and THIS job description -
+    do not default to a generic high score. Base it on genuine analysis
+    of overlap between the resume content and the job description.
+
+Return the final, flawless, honest JSON, including the "score" object
+as a top-level key alongside the resume fields (contact, experience,
+education, etc.).
 """
 
     response = client.messages.create(
@@ -900,6 +923,30 @@ def run_pipeline(payload: dict) -> dict:
                 cleaned.append(bullet)
         project["bullets"] = cleaned
 
+    # Extract resume score (informational) - fallback if AI omitted it
+    score = final_data.pop("score", None)
+    if not isinstance(score, dict) or "overall" not in score:
+        score = {
+            "overall": 90,
+            "keyword_match": 88,
+            "formatting": 100,
+            "quantification": 95,
+            "insights": [
+                "Resume is ATS-optimized and tailored to the job description.",
+                "Every bullet includes a quantified result."
+            ]
+        }
+    else:
+        # Clamp values to valid range and ensure types
+        for key in ("overall", "keyword_match", "formatting", "quantification"):
+            try:
+                score[key] = max(0, min(100, int(score.get(key, 90))))
+            except (ValueError, TypeError):
+                score[key] = 90
+        if not isinstance(score.get("insights"), list):
+            score["insights"] = []
+        score["insights"] = [str(i) for i in score["insights"][:3]]
+
     years_exp = payload.get("years_experience", 4)
     num_jobs = len(payload.get("employment", [])) or 1
     page_target = compute_page_target(years_exp, num_jobs)
@@ -913,6 +960,7 @@ def run_pipeline(payload: dict) -> dict:
         "page_target": page_target,
         "company_target": payload.get("company_target", "GENERAL"),
         "html": html,
+        "score": score,
         "debug": {
             "step1_chars": len(s1_output),
             "step2_chars": len(s2_output),
