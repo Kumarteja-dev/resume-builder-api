@@ -392,13 +392,16 @@ def start_resume():
         payload = parse_and_prepare_payload(raw_data)
 
         # Check trial/subscription usage limits before starting the pipeline
+        # Return HTTP 200 (not 403) so Bubble's API Connector doesn't show
+        # its default error popup - we handle success:false via "Only when"
+        # conditions in the Bubble workflow instead.
         limit_check = check_usage_limits(payload)
         if not limit_check["allowed"]:
             return jsonify({
                 "success": False,
                 "error": limit_check["error"],
                 "limit_reached": True
-            }), 403
+            }), 200
 
         job_id = str(uuid.uuid4())[:8]
         resume_store[job_id] = {"status": "pending"}
