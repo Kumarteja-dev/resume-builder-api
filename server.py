@@ -13,6 +13,7 @@ import re
 import uuid
 import threading
 import io
+from datetime import datetime
 
 resume_store = {}
 
@@ -251,6 +252,88 @@ def run_pipeline_in_background(job_id: str, payload: dict):
         print(f"[ASYNC] Job {job_id} failed: {e}")
 
 
+def check_usage_limits(payload: dict) -> dict:
+    """
+    Checks the user's subscription status and usage limits.
+
+    Returns a dict:
+      {"allowed": True, "updated_counts": {...}}  - request can proceed
+      {"allowed": False, "error": "..."}          - request blocked
+
+    "updated_counts" contains the new values for trial_resumes_used,
+    resumes_generated_today, and last_generation_date that Bubble
+    should save back to the User record after a successful generation.
+    """
+    TRIAL_LIMIT = 3
+    DAILY_LIMIT = 30
+
+    subscription_status = str(payload.get("subscription_status", "trial")).strip().lower()
+
+    try:
+        trial_resumes_used = int(float(str(payload.get("trial_resumes_used", 0) or 0)))
+    except (ValueError, TypeError):
+        trial_resumes_used = 0
+
+    try:
+        resumes_generated_today = int(float(str(payload.get("resumes_generated_today", 0) or 0)))
+    except (ValueError, TypeError):
+        resumes_generated_today = 0
+
+    last_generation_date = str(payload.get("last_generation_date", "") or "").strip()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    if subscription_status == "trial":
+        if trial_resumes_used >= TRIAL_LIMIT:
+            return {
+                "allowed": False,
+                "error": (
+                    f"You've used all {TRIAL_LIMIT} free trial resumes. "
+                    f"Subscribe to continue generating tailored resumes."
+                )
+            }
+        return {
+            "allowed": True,
+            "updated_counts": {
+                "trial_resumes_used": trial_resumes_used + 1,
+                "resumes_generated_today": resumes_generated_today,
+                "last_generation_date": last_generation_date or today_str
+            }
+        }
+
+    elif subscription_status == "active":
+        # Reset daily count if last generation was on a different day
+        if last_generation_date != today_str:
+            resumes_generated_today = 0
+
+        if resumes_generated_today >= DAILY_LIMIT:
+            return {
+                "allowed": False,
+                "error": (
+                    f"You've reached your daily limit of {DAILY_LIMIT} resumes. "
+                    f"Your limit resets tomorrow."
+                )
+            }
+
+        return {
+            "allowed": True,
+            "updated_counts": {
+                "trial_resumes_used": trial_resumes_used,
+                "resumes_generated_today": resumes_generated_today + 1,
+                "last_generation_date": today_str
+            }
+        }
+
+    else:
+        # expired or unknown status
+        return {
+            "allowed": False,
+            "error": (
+                "Your subscription has expired or is inactive. "
+                "Please subscribe to continue."
+            )
+        }
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "Elite Resume Builder API"})
@@ -308,6 +391,15 @@ def start_resume():
         raw_data = request.get_data(as_text=True)
         payload = parse_and_prepare_payload(raw_data)
 
+        # Check trial/subscription usage limits before starting the pipeline
+        limit_check = check_usage_limits(payload)
+        if not limit_check["allowed"]:
+            return jsonify({
+                "success": False,
+                "error": limit_check["error"],
+                "limit_reached": True
+            }), 403
+
         job_id = str(uuid.uuid4())[:8]
         resume_store[job_id] = {"status": "pending"}
 
@@ -323,7 +415,8 @@ def start_resume():
         return jsonify({
             "success": True,
             "resume_id": job_id,
-            "status": "pending"
+            "status": "pending",
+            "updated_counts": limit_check["updated_counts"]
         }), 202
 
     except json.JSONDecodeError as e:
