@@ -776,9 +776,14 @@ def step3_ats_guard(step2_output: str, payload: dict) -> dict:
 and resume ethics officer. You are the final gate before a resume
 reaches a real recruiter. Return ONLY clean JSON. Same schema. No markdown."""
 
+    jd = payload.get("job_description", "")
+
     user_prompt = f"""
 PAGE TARGET: {page_target} pages
 TARGET COMPANY: {company}
+
+JOB DESCRIPTION (use this for the RESUME SCORE section below):
+{jd}
 
 RESUME JSON:
 {step2_output}
@@ -828,7 +833,9 @@ FINAL CHECKLIST:
     - 2-page + under 900 words = expand bullets
 
 11. RESUME SCORE (informational only - assess honestly):
-    After finalizing the resume, evaluate it against the job description
+    After finalizing the resume, evaluate it against the JOB DESCRIPTION
+    provided above (NOT against the target company's general reputation
+    or typical hiring profile - score against the actual JD text given)
     and compute a match score. Add a "score" object to the JSON with:
     - "overall": integer 0-100, overall match quality for this specific
       job description (weigh keyword/skill alignment most heavily,
