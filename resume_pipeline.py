@@ -330,11 +330,28 @@ CRITICAL HONESTY AND SECTOR RULES — NEVER VIOLATE:
 
     base_rules += """
 3. FABRICATION RULE:
-   - Never invent companies, certifications, or technologies not provided.
+   - Never invent companies, certifications, or named tools/software/
+     technologies/methodologies the candidate never mentioned in any form.
    - Never imply the candidate worked somewhere they did not.
    - Never add years of experience beyond what the dates show.
    - For projects: generate realistic projects a person in their role
      and company would actually work on. Must be defensible in interview.
+
+   ALLOWED REWORDING FOR JD ALIGNMENT:
+   - If a bullet already describes BROAD responsibility in an area
+     (e.g. "Configured Workday Payroll and Benefits modules"), and the
+     job description emphasizes a specific sub-topic within that same
+     area (e.g. "SOX-compliant audit reporting"), you MAY reword that
+     bullet to surface the JD-relevant angle AS A NATURAL SUBSET of
+     the work already described
+     (e.g. "Configured Workday Payroll and Benefits modules, supporting
+     SOX-compliant audit reporting").
+   - This is rewording a TRUE broad claim to highlight a TRUE-ISH
+     specific angle - it must remain a logical subset of what the
+     candidate already described, not a new unrelated claim.
+   - This does NOT permit adding a brand-new named tool, certification,
+     or technology that has zero connection to anything the candidate
+     already described.
 """
     return base_rules
 
@@ -705,9 +722,13 @@ CRITIQUE CHECKLIST — fix ALL:
 
 4. JD KEYWORD GAP ANALYSIS:
    Check these top keywords from the JD: {keyword_list}
-   For each keyword NOT in the resume:
-   - If it matches the candidate's sector and experience → inject naturally
-   - If it does NOT match their background → skip it (do not fabricate)
+   For each keyword NOT currently in the resume:
+   - If an EXISTING bullet already describes broad responsibility that
+     this keyword/topic is a natural subset of, REWORD that bullet to
+     surface the JD-relevant angle (see ALLOWED REWORDING in the rules
+     above). Do not add a separate new bullet for it.
+   - If it does NOT connect to anything the candidate already described
+     → skip it (do not fabricate a new claim or bullet).
 
 5. SUMMARY:
    - Must open with target job title: "{target_job_title or 'their job title'}"
@@ -796,6 +817,11 @@ FINAL CHECKLIST:
      did not → rewrite to remove false implication.
    - Any invented certifications → remove.
    - Any cross-sector jargon not matching candidate background → remove.
+   - Any named tool/technology/methodology with NO connection to
+     anything else in the resume → remove (this is fabrication).
+   - KEEP rewordings that surface a JD-relevant sub-topic as a natural
+     subset of a broader responsibility already described elsewhere in
+     the resume - these are allowed and should NOT be removed.
 
 10. DENSITY:
     - 3-page + under 1,400 words = expand bullets
