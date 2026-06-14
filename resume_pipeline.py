@@ -804,9 +804,17 @@ FINAL CHECKLIST:
    - Plain ASCII only
 
 4. BULLET LENGTH:
-   - Each bullet: ~100 characters max at 10pt font
-   - Split bullets over limit into two
-   - No bullet under 60 characters
+   - Each bullet: 60-145 characters at 10pt font (about 2 lines, max
+     2.5 lines - this is the target range, most bullets should land here)
+   - If a bullet exceeds ~150 characters, split it into TWO separate
+     bullets - but ONLY if each half is a grammatically complete,
+     standalone sentence with its own subject and verb. Do NOT split
+     at a comma into a fragment/continuation (e.g. never split into
+     "...Talent modules," + "reducing ad-hoc requests by 35%").
+   - If a natural complete-sentence split isn't possible, instead
+     REWRITE the bullet to be more concise so it fits within ~145
+     characters as ONE bullet - this is preferred over an awkward split.
+   - No bullet under 60 characters.
 
 5. SUMMARY: Exactly 5 sentences, 75-85 words total.
 
