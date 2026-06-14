@@ -240,6 +240,7 @@ def run_pipeline_in_background(job_id: str, payload: dict):
             "resume_data": result.get("resume_data", {}),
             "page_target": result.get("page_target", 2),
             "company_target": result.get("company_target", "GENERAL"),
+            "score": result.get("score", {}),
             "debug": result.get("debug", {})
         }
         print(f"[ASYNC] Job {job_id} completed successfully.")
@@ -359,6 +360,7 @@ def generate_resume():
             "resume_data": result.get("resume_data", {}),
             "page_target": result.get("page_target", 2),
             "company_target": result.get("company_target", "GENERAL"),
+            "score": result.get("score", {}),
             "debug": result.get("debug", {})
         }
         result["resume_id"] = resume_id
@@ -472,7 +474,8 @@ def check_status():
             "html": entry.get("html", ""),
             "resume_data": entry.get("resume_data", {}),
             "page_target": entry.get("page_target", 2),
-            "company_target": entry.get("company_target", "GENERAL")
+            "company_target": entry.get("company_target", "GENERAL"),
+            "score": entry.get("score", {})
         }), 200
 
 
