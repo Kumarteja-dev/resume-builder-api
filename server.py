@@ -128,8 +128,9 @@ def sanitize_payload(payload):
 
 def reconstruct_scratch_payload(payload):
     """
-    Bubble sends flat parameters for scratch workflow.
-    Reconstruct nested contact/employment/education structure.
+    Bubble sends flat parameters for scratch workflow (legacy), or a
+    pre-built employment array with multiple job slots (current).
+    Reconstruct/clean nested contact/employment/education structure.
     """
     contact = {
         "name": payload.get("contact_name", ""),
@@ -139,11 +140,36 @@ def reconstruct_scratch_payload(payload):
         "location": payload.get("contact_location", "")
     }
 
-    employment = []
-    if payload.get("company_name") or payload.get("job_title"):
+    # If Bubble already sent a structured employment array, clean it:
+    # drop any job entries that are entirely empty (e.g. unused Job 2-4
+    # slots the user left blank).
+    employment = payload.get("employment", [])
+    if isinstance(employment, list) and employment:
+        cleaned_employment = []
+        for job in employment:
+            if not isinstance(job, dict):
+                continue
+            company = str(job.get("company", "")).strip()
+            title = str(job.get("title", "")).strip()
+            if not company and not title:
+                continue  # empty/unused job slot - skip it
+            cleaned_employment.append({
+                "company": company,
+                "title": title,
+                "location": str(job.get("location", "")).strip(),
+                "start_date": str(job.get("start_date", "")).strip(),
+                "end_date": str(job.get("end_date", "") or "Present").strip()
+            })
+        employment = cleaned_employment
+    else:
+        employment = []
+
+    # Legacy fallback: flat fields for a single job (no structured array)
+    if not employment and (payload.get("company_name") or payload.get("job_title")):
         employment.append({
             "company": payload.get("company_name", ""),
             "title": payload.get("job_title", ""),
+            "location": payload.get("job_location", ""),
             "start_date": payload.get("start_date", ""),
             "end_date": payload.get("end_date", "Present")
         })
@@ -159,8 +185,11 @@ def reconstruct_scratch_payload(payload):
 
     if "contact" not in payload or not payload["contact"]:
         payload["contact"] = contact
-    if "employment" not in payload or not payload["employment"]:
-        payload["employment"] = employment
+
+    # Always use our cleaned employment array (handles both structured
+    # input from Bubble and legacy flat-field fallback)
+    payload["employment"] = employment
+
     if "education" not in payload or not payload["education"]:
         payload["education"] = education
 
