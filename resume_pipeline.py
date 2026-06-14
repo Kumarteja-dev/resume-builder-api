@@ -1,9 +1,9 @@
 """
 =============================================================================
-ELITE AI RESUME BUILDER - PRODUCTION BACKEND PIPELINE v4
+ELITE AI RESUME BUILDER — PRODUCTION BACKEND PIPELINE v4
 =============================================================================
 Model: claude-sonnet-4-6
-3-Step Pipeline: Specialist Writer -> FAANG Critic -> ATS Guard
+3-Step Pipeline: Specialist Writer → FAANG Critic → ATS Guard
 
 NEW IN v4:
 - Target job title field support
@@ -11,7 +11,6 @@ NEW IN v4:
 - Stronger JD keyword matching in Step 2
 - Optional projects section (only renders if generated or provided)
 - All sector awareness and anti-fabrication rules from v3
-- Experimental JD tool injection mode for controlled testing
 =============================================================================
 """
 
@@ -98,7 +97,7 @@ COMPANY STYLE: TIKTOK
 COMPANY STYLE: FORTUNE 50 / ELITE CORPORATE
 - Focus on corporate scale: P&L responsibility, budgets, enterprise clients, global teams.
 - Use executive vocabulary: "P&L ownership", "managed $XXM budget", "led team of XX".
-- Professional Summary should read like a C-suite biography - gravitas and impact.
+- Professional Summary should read like a C-suite biography — gravitas and impact.
 - Projects should demonstrate strategic thinking and enterprise-scale impact.
 """,
     "GENERAL": """
@@ -296,7 +295,7 @@ def get_sector_rules(candidate_sector: str, target_sector: str,
                    target_sector == "general")
 
     base_rules = f"""
-CRITICAL HONESTY AND SECTOR RULES - NEVER VIOLATE:
+CRITICAL HONESTY AND SECTOR RULES — NEVER VIOLATE:
 
 1. TARGET COMPANY NAME RULE:
    - NEVER write the target company name ({target_company}) inside any
@@ -307,25 +306,6 @@ CRITICAL HONESTY AND SECTOR RULES - NEVER VIOLATE:
 2. SECTOR INTEGRITY:
    - Candidate sector: {candidate_sector.upper()}
    - Target company sector: {target_sector.upper()}
-   - Sector integrity is HIGHER PRIORITY than JD tool matching.
-   - JD tool injection may add tools, platforms, languages, frameworks,
-     cloud services, and role-natural methods.
-   - JD tool injection must NOT add target-sector business context,
-     business objects, regulated domain claims, customer types, product
-     lines, or industry-specific workflows unless the candidate already
-     has that sector context.
-   - Example: a CVS healthcare candidate applying to JPMorgan may align
-     to Terraform, Kubernetes, Jenkins, Datadog, Java, Python, AWS,
-     incident response, SLOs, and CI/CD if those are JD tools or
-     adjacent skills. Do NOT rewrite CVS bullets into trading, banking,
-     capital markets, loan servicing, settlement, credit risk, payments,
-     wealth management, Basel, or bank regulatory workflows.
-   - Example: a JPMorgan finance candidate applying to CVS may align
-     to Workday, UKG, Azure, SQL, APIs, data migration, dashboards, or
-     access controls if relevant. Do NOT rewrite JPMorgan bullets into
-     patient care, pharmacy claims, clinical workflows, EHR, medication,
-     diagnosis, HIPAA patient operations, or retail pharmacy operations
-     unless the candidate already has that background.
 """
 
     if same_sector:
@@ -336,11 +316,7 @@ CRITICAL HONESTY AND SECTOR RULES - NEVER VIOLATE:
     else:
         base_rules += f"""
    - SECTORS DIFFER. Do NOT inject {target_sector.upper()}-specific
-     jargon into the candidate's {candidate_sector.upper()} experience,
-     even when JD TOOL TEST MODE is enabled.
-   - Treat target-sector terms as blocked unless they are generic tools,
-     transferable technical methods, or already present in the candidate
-     material.
+     jargon into the candidate's {candidate_sector.upper()} experience.
    - Instead highlight TRANSFERABLE SKILLS:
      * Leadership and team scale
      * System scale and reliability metrics
@@ -354,65 +330,12 @@ CRITICAL HONESTY AND SECTOR RULES - NEVER VIOLATE:
 
     base_rules += """
 3. FABRICATION RULE:
-   - Never invent companies, certifications, employers, degrees, or years
-     of experience. Preserve those exactly as provided.
+   - Never invent companies, certifications, or named tools/software/
+     technologies/methodologies the candidate never mentioned in any form.
    - Never imply the candidate worked somewhere they did not.
+   - Never add years of experience beyond what the dates show.
    - For projects: generate realistic projects a person in their role
      and company would actually work on. Must be defensible in interview.
-
-4. JD TOOL AND TECH STACK ALIGNMENT RULES:
-   Your job is to maximize JD alignment without lying. Do NOT treat every
-   JD tool as blocked just because the exact name is missing from the
-   current resume. This rule applies only to tools, platforms, libraries,
-   frameworks, languages, cloud services, observability products, security
-   products, and role-natural technical methods. It does NOT apply to
-   target-sector domain language. Classify each JD tool, platform, library,
-   framework, language, method, and compliance term into one of these tiers:
-
-   TIER A - VERIFIED DIRECT MATCH:
-   - The exact tool or term appears in the candidate resume, skills,
-     certifications, education, project notes, or payload.
-   - Use it directly in experience bullets, summary, projects, and skills.
-
-   TIER B - VERIFIED ECOSYSTEM OR ADJACENT MATCH:
-   - The JD tool is in the same practical family as a verified candidate
-     skill. Examples: Kubernetes includes EKS/AKS/GKE concepts; CI/CD
-     includes Jenkins/GitHub Actions/GitLab CI/Azure DevOps; cloud
-     networking includes VPC/VNet/VPN/Direct Connect/ExpressRoute;
-     monitoring includes Prometheus/Grafana/Datadog/CloudWatch/Azure
-     Monitor/Splunk; IaC includes Terraform/CloudFormation/Bicep/Pulumi.
-   - You may use the JD wording when describing the broader capability,
-     but do not claim deep production ownership of a specific tool unless
-     the candidate actually provided that tool.
-   - Good: "standardized CI/CD release controls across Jenkins and
-     GitHub Actions, aligning with GitLab-style gated deployment patterns."
-   - Bad: "owned GitLab CI at scale" when GitLab CI was never provided.
-
-   TIER C - ROLE-NATURAL METHOD OR CONCEPT:
-   - The JD term is a method, practice, or responsibility naturally tied
-     to the candidate role, such as incident response, SLOs, automation,
-     runbooks, change management, audit controls, or troubleshooting.
-   - You may surface it inside bullets if it is a reasonable subset of
-     existing responsibilities.
-
-   TIER D - UNSUPPORTED SPECIFIC TOOL:
-   - The JD mentions a specific tool with no direct, adjacent, ecosystem,
-     or role-natural connection to the candidate material.
-   - Do not place it in experience bullets. If needed, place it only in
-     the score insights as a gap.
-
-   DOMAIN TERMS ARE NOT TOOLS:
-   - Sector words such as trading, capital markets, banking, loan,
-     settlement, payments, credit risk, underwriting, patient care,
-     clinical, EHR, diagnosis, pharmacy claims, retail pharmacy, or
-     manufacturing operations are domain terms, not JD tools.
-   - Do not inject those domain terms across sectors unless the candidate
-     already worked in that domain or explicitly provided that experience.
-
-   SKILLS SECTION RULE:
-   - Skills should prioritize Tier A tools first, then Tier B adjacent
-     categories. Do not flood the skills section with unsupported Tier D
-     tools.
 
    ALLOWED REWORDING FOR JD ALIGNMENT:
    - If a bullet already describes BROAD responsibility in an area
@@ -426,92 +349,11 @@ CRITICAL HONESTY AND SECTOR RULES - NEVER VIOLATE:
    - This is rewording a TRUE broad claim to highlight a TRUE-ISH
      specific angle - it must remain a logical subset of what the
      candidate already described, not a new unrelated claim.
-   - This DOES permit JD tools and tech stack terms when they are Tier A,
-     Tier B, or Tier C. It does NOT permit Tier D unsupported tools.
+   - This does NOT permit adding a brand-new named tool, certification,
+     or technology that has zero connection to anything the candidate
+     already described.
 """
     return base_rules
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# JD TOOL TEST MODE RULES
-# ─────────────────────────────────────────────────────────────────────────────
-
-def is_jd_tool_test_mode(payload: dict) -> bool:
-    """
-    Returns True when the user intentionally wants to test how the model
-    behaves when JD tools are injected even if they are not verified in
-    the existing resume.
-
-    IMPORTANT: This mode is for experimentation and resume gap analysis.
-    Turn it off for production resumes unless the candidate can honestly
-    explain every added tool in an interview.
-    """
-    return bool(
-        payload.get("jd_tool_test_mode")
-        or payload.get("allow_unverified_jd_tools")
-        or payload.get("force_jd_tools")
-        or payload.get("experimental_jd_tool_injection")
-    )
-
-
-def get_jd_tool_test_mode_rules(payload: dict) -> str:
-    if not is_jd_tool_test_mode(payload):
-        return """
-JD TOOL MODE: HONEST ALIGNMENT MODE
-- Use verified candidate tools first.
-- Use adjacent JD tools only when they are Tier A, Tier B, or Tier C.
-- Do not add unsupported Tier D tools to experience bullets or skills.
-"""
-
-    return """
-JD TOOL MODE: EXPERIMENTAL JD TOOL INJECTION MODE IS ENABLED
-This mode exists only so the user can test and inspect how the resume
-would look if JD tools were aggressively inserted. The output is NOT
-ready for real applications until the candidate verifies every added tool.
-
-WHEN THIS MODE IS ENABLED:
-1. Extract the JD's named tools, platforms, programming languages,
-   frameworks, cloud services, observability tools, security tools,
-   compliance terms, and methodologies.
-2. Force relevant JD tools into the resume even if they do not appear
-   in the candidate's original resume or skills.
-3. Prefer placing unverified JD tools in the skills section first.
-4. Also weave important JD tools into experience bullets when they can
-   be connected to the role's general responsibilities.
-5. Do not invent employers, job titles, dates, certifications, degrees,
-   or impossible domain work. Only the tool-stack barrier is relaxed.
-   Sector integrity is NOT relaxed.
-6. Use phrasing that remains interview-defensible when possible, such as:
-   - "aligned Terraform automation with Ansible-driven configuration patterns"
-   - "supported Kubernetes reliability practices across EKS/AKS-style clusters"
-   - "mapped monitoring workflows to Datadog, Prometheus, and Grafana patterns"
-7. If a JD tool is completely unrelated, still include it in a skills
-   category only when the user explicitly enabled this test mode. Do not
-   build a full fake project around a completely unrelated tool.
-8. Add 2-3 score insights that clearly warn which tools were injected
-   from the JD and should be verified before submission.
-9. Never inject target-sector business language across sectors. If the
-   candidate is CVS/healthcare and the target is JPMorgan/finance, add
-   JD tools if test mode is enabled, but keep the actual work framed as
-   healthcare, enterprise, cloud, platform, reliability, automation,
-   data, or operational systems. Do not turn it into banking, trading,
-   capital markets, loan, payments, settlement, or credit risk work.
-10. If the candidate is JPMorgan/finance and the target is CVS/healthcare,
-   add JD tools if test mode is enabled, but do not turn the work into
-   patient care, pharmacy, clinical, EHR, diagnosis, medication, or
-   claims workflows unless already provided.
-
-SKILLS SECTION REQUIREMENT IN TEST MODE:
-- Make sure the skills section visibly contains the JD tools.
-- Use category names such as "Cloud and DevOps", "Observability and SRE",
-  and "JD Target Stack to Verify" when useful.
-
-EXPERIENCE BULLET REQUIREMENT IN TEST MODE:
-- At least 3 bullets across the resume should include important JD tools
-  that were not present in the original resume, if the JD contains them.
-- Keep bullets plausible and sector-locked. Prioritize visibility of the
-  JD tech stack, but never change the candidate's industry background.
-"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -551,15 +393,13 @@ CANDIDATE CONTEXT:
 PROJECT RULES:
 1. Projects MUST be realistic for a {seniority} {current_title}
    working at a company like {current_company}.
-2. Use technologies natural to their role and sector. You may include
-   target JD tech stack only when it is Tier A, Tier B, or Tier C under
-   the JD TOOL AND TECH STACK ALIGNMENT RULES. Do not use unsupported
-   Tier D tools.
-3. Projects should show initiative BEYOND their normal job duties -
+2. Use technologies natural to their role and sector — not the target
+   company's tech stack unless they overlap with the candidate's domain.
+3. Projects should show initiative BEYOND their normal job duties —
    internal tools they built, automation they created, systems they
    improved on their own time or as side initiatives.
 4. Each project must have 2 bullet points with real metrics.
-5. Projects must be defensible in a technical interview - a real person
+5. Projects must be defensible in a technical interview — a real person
    in this role could explain them in detail.
 6. DO NOT generate projects that require knowledge the candidate
    wouldn't have based on their role and sector.
@@ -568,11 +408,11 @@ PROJECT RULES:
 
 EXAMPLE of a GOOD project for a Software Engineer at a healthcare company
 applying to a bank:
-  - "Patient Data Analytics Dashboard" using Python and React - shows
-    full-stack skills, data handling, internal tooling - transferable.
+  - "Patient Data Analytics Dashboard" using Python and React — shows
+    full-stack skills, data handling, internal tooling — transferable.
 
 EXAMPLE of a BAD project for the same person:
-  - "Algorithmic Trading Engine" - they work in healthcare, this is
+  - "Algorithmic Trading Engine" — they work in healthcare, this is
     fabricated finance expertise. Do not do this.
 
 Include projects in the JSON output under the "projects" key.
@@ -618,7 +458,6 @@ def step1_specialist_writer(payload: dict) -> str:
     candidate_sector = detect_sector(candidate_text)
     target_sector = detect_sector(jd + " " + company)
     sector_rules = get_sector_rules(candidate_sector, target_sector, company)
-    jd_tool_mode_rules = get_jd_tool_test_mode_rules(payload)
 
     if workflow == "scratch":
         employment = payload.get("employment", [])
@@ -652,7 +491,7 @@ def step1_specialist_writer(payload: dict) -> str:
         else:
             cert_lines = str(certifications)
         cert_block = f"""
-CERTIFICATIONS (include accurately - never alter or invent):
+CERTIFICATIONS (include accurately — never alter or invent):
 {cert_lines}
 """
 
@@ -684,10 +523,8 @@ SOURCE MATERIAL (Existing Resume):
 TASK: Tailor this existing resume. You MUST:
 - Preserve ALL company names, job titles, and dates EXACTLY as written.
 - Rewrite bullets to be stronger, metric-driven, and JD-aligned.
-- Actively map JD tools and tech stack into the resume using the tiered
-  JD TOOL AND TECH STACK ALIGNMENT RULES.
 - Add bullets to hit density targets if needed.
-- Candidate has {years_exp} years experience - reflect this accurately.
+- Candidate has {years_exp} years experience — reflect this accurately.
 - Do NOT invent employers, change titles, or fabricate experience.
 - Do NOT inject target company name into bullets unless candidate worked there.
 {title_instruction}
@@ -716,7 +553,7 @@ CONTACT:
   LinkedIn: {contact.get('linkedin', '')}
   Location: {contact.get('location', '')}
 
-EMPLOYMENT (verbatim - never change):
+EMPLOYMENT (verbatim — never change):
 {emp_block}
 
 EDUCATION (verbatim):
@@ -727,13 +564,11 @@ EDUCATION (verbatim):
         task_instruction = f"""
 TASK: Build resume FROM SCRATCH using structural data above. You MUST:
 - Use ALL company names, job titles, and dates EXACTLY as provided.
-- Candidate has {years_exp} years experience. Reflect THIS - not the JD requirement.
+- Candidate has {years_exp} years experience. Reflect THIS — not the JD requirement.
 - Construct all bullets tailored to JD and company style.
-- Actively map JD tools and tech stack into the resume using the tiered
-  JD TOOL AND TECH STACK ALIGNMENT RULES.
 - Use candidate's actual skills as foundation for skills section.
 - Include all certifications exactly as provided.
-- Apply sector rules - do not fabricate cross-sector experience.
+- Apply sector rules — do not fabricate cross-sector experience.
 {title_instruction}
 {projects_prompt}
 """
@@ -747,7 +582,6 @@ You highlight real transferable value rather than inventing fake matches.
 {company_prompt}
 {density_rules}
 {sector_rules}
-{jd_tool_mode_rules}
 """
 
     # Build JSON schema based on whether projects are included
@@ -830,7 +664,6 @@ def step2_faang_critic(step1_output: str, payload: dict) -> str:
     candidate_sector = detect_sector(candidate_text)
     target_sector = detect_sector(jd + " " + company)
     sector_rules = get_sector_rules(candidate_sector, target_sector, company)
-    jd_tool_mode_rules = get_jd_tool_test_mode_rules(payload)
 
     # Extract top 10 JD keywords for gap analysis
     jd_words = re.findall(r'\b[A-Za-z][A-Za-z+#.]{2,}\b', jd)
@@ -851,10 +684,9 @@ def step2_faang_critic(step1_output: str, payload: dict) -> str:
 
     system_prompt = f"""You are the harshest, most exacting FAANG resume critic alive.
 You have reviewed 50,000+ resumes at Google, Amazon, and Meta.
-You are also an expert in resume ethics - you never fabricate experience.
+You are also an expert in resume ethics — you never fabricate experience.
 
 {sector_rules}
-{jd_tool_mode_rules}
 
 Return ONLY improved JSON. Same schema. No markdown. No explanation."""
 
@@ -873,39 +705,30 @@ JOB DESCRIPTION:
 DRAFT RESUME JSON:
 {step1_output}
 
-CRITIQUE CHECKLIST - fix ALL:
+CRITIQUE CHECKLIST — fix ALL:
 
-1. WEAK VERBS - Replace:
+1. WEAK VERBS — Replace:
    BAD: "Helped", "Assisted", "Supported", "Worked on", "Participated",
         "Was responsible for", "Contributed to", "Involved in"
    GOOD: "Architected", "Engineered", "Spearheaded", "Accelerated",
          "Slashed", "Drove", "Launched", "Scaled", "Orchestrated"
 
-2. AI FILLER - Delete:
+2. AI FILLER — Delete:
    "Leveraged synergies", "Demonstrated expertise", "Utilized best practices",
    "Passionate about", "Results-driven", "Detail-oriented",
    "Proven track record", "Dynamic professional", "Seeking to"
 
-3. MISSING METRICS - Every bullet needs a number. Add one if missing.
+3. MISSING METRICS — Every bullet needs a number. Add one if missing.
 
-4. JD KEYWORD AND TECH STACK GAP ANALYSIS:
+4. JD KEYWORD GAP ANALYSIS:
    Check these top keywords from the JD: {keyword_list}
-   For each missing JD keyword, tool, platform, framework, language,
-   method, or compliance term:
-   - If it is Tier A, use it directly and naturally.
-   - If it is Tier B, align the bullet to the broader ecosystem or
-     adjacent capability without overstating hands-on depth.
-   - If it is Tier C, surface it as a role-natural responsibility or
-     method within an existing bullet.
-   - If it is Tier D, skip it in the resume and optionally mention it
-     as a gap in score insights.
-   - Do not add separate keyword-stuffing bullets. Rework existing
-     bullets first; add a bullet only when density rules require it.
-   - If EXPERIMENTAL JD TOOL INJECTION MODE is enabled, override the
-     Tier D skip behavior for testing only: add important JD tools to
-     skills and weave the most relevant ones into plausible bullets so
-     the user can inspect the output. This override applies only to
-     tools and technical methods, not target-sector domain language.
+   For each keyword NOT currently in the resume:
+   - If an EXISTING bullet already describes broad responsibility that
+     this keyword/topic is a natural subset of, REWORD that bullet to
+     surface the JD-relevant angle (see ALLOWED REWORDING in the rules
+     above). Do not add a separate new bullet for it.
+   - If it does NOT connect to anything the candidate already described
+     → skip it (do not fabricate a new claim or bullet).
 
 5. SUMMARY:
    - Must open with target job title: "{target_job_title or 'their job title'}"
@@ -914,18 +737,16 @@ CRITIQUE CHECKLIST - fix ALL:
    - Must NOT use filler phrases
    - Exactly 5 sentences
 
-6. DENSITY - Add bullets if any job is below minimum.
+6. DENSITY — Add bullets if any job is below minimum.
 
 7. FABRICATION SCAN:
    - Remove any bullet implying candidate worked at {company} if they did not
    - Remove any cross-sector jargon not matching candidate's background
-   - Keep JD tools only when they are framed as tools or technical methods,
-     not as fake target-sector business experience
    - Verify projects (if present) are realistic for candidate's role
 
-8. CERTIFICATIONS - Preserve exactly. Never alter.
+8. CERTIFICATIONS — Preserve exactly. Never alter.
 
-9. PROJECTS - If present, verify each has 2 metric-driven bullets
+9. PROJECTS — If present, verify each has 2 metric-driven bullets
    and is realistic for the candidate's actual role and company.
 
 Return perfected JSON. Same schema. No markdown.
@@ -950,17 +771,19 @@ def step3_ats_guard(step2_output: str, payload: dict) -> dict:
     num_jobs = len(payload.get("employment", [])) or 1
     page_target = compute_page_target(years_exp, num_jobs)
     company = payload.get("company_target", "GENERAL")
-    jd_tool_mode_rules = get_jd_tool_test_mode_rules(payload)
 
     system_prompt = """You are an elite ATS compliance officer, proofreader,
 and resume ethics officer. You are the final gate before a resume
 reaches a real recruiter. Return ONLY clean JSON. Same schema. No markdown."""
 
+    jd = payload.get("job_description", "")
+
     user_prompt = f"""
 PAGE TARGET: {page_target} pages
 TARGET COMPANY: {company}
 
-{jd_tool_mode_rules}
+JOB DESCRIPTION (use this for the RESUME SCORE section below):
+{jd}
 
 RESUME JSON:
 {step2_output}
@@ -996,28 +819,23 @@ FINAL CHECKLIST:
 
 9. FABRICATION FINAL SCAN:
    - Any bullet implying candidate worked at {company} when they
-     did not -> rewrite to remove false implication.
-   - Any invented certifications -> remove.
-   - Any cross-sector jargon not matching candidate background -> remove.
-   - Remove named tools, technologies, or methodologies only when they
-     are Tier D unsupported terms with no direct, adjacent, ecosystem,
-     or role-natural connection to the candidate material.
-   - KEEP Tier A, Tier B, and Tier C JD alignment terms when they are
-     used honestly and naturally. These are allowed and should NOT be
-     removed.
-   - If EXPERIMENTAL JD TOOL INJECTION MODE is enabled, do NOT remove
-     injected JD tools only because they were absent from the original
-     resume. Keep them visible for testing and warn about verification
-     in score insights.
-   - This exception does not apply to target-sector domain language.
-     Remove sector-swapped claims even in test mode.
+     did not → rewrite to remove false implication.
+   - Any invented certifications → remove.
+   - Any cross-sector jargon not matching candidate background → remove.
+   - Any named tool/technology/methodology with NO connection to
+     anything else in the resume → remove (this is fabrication).
+   - KEEP rewordings that surface a JD-relevant sub-topic as a natural
+     subset of a broader responsibility already described elsewhere in
+     the resume - these are allowed and should NOT be removed.
 
 10. DENSITY:
     - 3-page + under 1,400 words = expand bullets
     - 2-page + under 900 words = expand bullets
 
 11. RESUME SCORE (informational only - assess honestly):
-    After finalizing the resume, evaluate it against the job description
+    After finalizing the resume, evaluate it against the JOB DESCRIPTION
+    provided above (NOT against the target company's general reputation
+    or typical hiring profile - score against the actual JD text given)
     and compute a match score. Add a "score" object to the JSON with:
     - "overall": integer 0-100, overall match quality for this specific
       job description (weigh keyword/skill alignment most heavily,
@@ -1121,7 +939,7 @@ def run_pipeline(payload: dict) -> dict:
         print(f"[PIPELINE] Step 3 failed ({e}). Using Step 2 output.")
         final_data = extract_json(s2_output)
 
-    # Sanitize bullets - collapse any internal line breaks
+    # Sanitize bullets — collapse any internal line breaks
     for job in final_data.get("experience", []):
         cleaned = []
         for bullet in job.get("bullets", []):
@@ -1184,7 +1002,6 @@ def run_pipeline(payload: dict) -> dict:
             "num_jobs": num_jobs,
             "candidate_sector": candidate_sector,
             "target_sector": target_sector,
-            "projects_included": payload.get("include_projects", False),
-            "jd_tool_test_mode": is_jd_tool_test_mode(payload)
+            "projects_included": payload.get("include_projects", False)
         }
     }
