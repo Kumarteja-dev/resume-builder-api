@@ -415,12 +415,12 @@
   <div class="blob b4"></div>
 
   <div class="error-card">
-    <div class="error-icon">!</div>
-    <div class="error-title">Something went wrong</div>
+    <div class="error-icon" id="error-icon">!</div>
+    <div class="error-title" id="error-title">Something went wrong</div>
     <div class="error-message" id="error-message-text">
       We couldn't generate your resume. Please try again.
     </div>
-    <button class="retry-btn" onclick="window.location.reload()">Try again</button>
+    <button class="retry-btn" id="error-action-btn" onclick="window.location.reload()">Try again</button>
   </div>
 </div>
 
@@ -451,6 +451,7 @@
 <script>
 const params = new URLSearchParams(window.location.search);
 const resumeId = params.get('id');
+const errorReason = params.get('error');
 
 const loadingScreen = document.getElementById('loading-screen');
 const errorScreen = document.getElementById('error-screen');
@@ -482,12 +483,24 @@ function advanceStep() {
   }
 }
 
-function showError(message) {
+function showError(message, options) {
+  options = options || {};
   clearInterval(stepInterval);
   loadingScreen.style.display = 'none';
   errorScreen.style.display = 'flex';
   document.getElementById('error-message-text').textContent = message ||
     "We couldn't generate your resume. Please try again.";
+  document.getElementById('error-title').textContent =
+    options.title || "Something went wrong";
+
+  const btn = document.getElementById('error-action-btn');
+  if (options.actionLabel && options.actionUrl) {
+    btn.textContent = options.actionLabel;
+    btn.onclick = function() { window.location.href = options.actionUrl; };
+  } else {
+    btn.textContent = "Try again";
+    btn.onclick = function() { window.location.reload(); };
+  }
 }
 
 function showResume(html) {
@@ -507,7 +520,20 @@ function showResume(html) {
 }
 
 if (!resumeId) {
-  showError('No resume ID provided. Please generate a resume first.');
+  const homeUrl = 'https://tejachowdary383.bubbleapps.io/version-test';
+  if (errorReason === 'limit_reached') {
+    showError(
+      'You\'ve used all your free trial resumes. Subscribe to keep generating tailored resumes.',
+      { title: 'Trial complete', actionLabel: 'Back to home', actionUrl: homeUrl }
+    );
+  } else if (errorReason === 'daily_limit') {
+    showError(
+      'You\'ve reached your daily limit of resumes. Your limit resets tomorrow.',
+      { title: 'Daily limit reached', actionLabel: 'Back to home', actionUrl: homeUrl }
+    );
+  } else {
+    showError('No resume ID provided. Please go back and generate a resume first.');
+  }
 } else {
   document.getElementById('download-btn').addEventListener('click', function() {
     window.location.href = '/download-docx?id=' + encodeURIComponent(resumeId);
