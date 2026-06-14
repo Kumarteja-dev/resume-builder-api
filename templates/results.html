@@ -314,7 +314,7 @@
   .resume-area {
     position: relative; z-index: 2;
     padding: 2.5rem 1.5rem;
-    display: flex; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
   }
   .resume-sheet-wrap {
     width: 100%;
@@ -323,6 +323,107 @@
     border-radius: 4px;
     overflow: hidden;
   }
+
+  /* ===================== SCORE CARD ===================== */
+  .score-card {
+    width: 100%;
+    max-width: 8.5in;
+    position: relative;
+    overflow: hidden;
+    background: rgba(255,255,255,0.55);
+    backdrop-filter: blur(28px) saturate(1.8);
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 22px;
+    padding: 1.75rem 2rem;
+    box-shadow: 0 20px 60px rgba(83,74,183,0.12), 0 4px 16px rgba(0,0,0,0.05),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .score-card::before {
+    content: '';
+    position: absolute; top: -40%; right: -10%;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(175,169,236,0.35), transparent 70%);
+    pointer-events: none;
+  }
+
+  .score-card-header {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .score-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.95);
+    color: #534AB7; font-size: 11px; font-weight: 700;
+    padding: 6px 14px; border-radius: 999px; letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 8px rgba(83,74,183,0.08);
+  }
+  .score-badge svg { width: 13px; height: 13px; }
+  .score-ai-label {
+    font-size: 11px; color: #a8a6a1; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  .score-body {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;
+  }
+
+  .score-ring-wrap { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+  .score-ring-wrap svg.ring-svg { transform: rotate(-90deg); }
+  .score-ring-bg { fill: none; stroke: rgba(0,0,0,0.05); stroke-width: 8; }
+  .score-ring-fg {
+    fill: none; stroke-width: 8; stroke-linecap: round;
+    stroke: url(#scoreGradient);
+    filter: drop-shadow(0 2px 8px rgba(127,119,221,0.35));
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+  .score-ring-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .score-ring-number { font-size: 30px; font-weight: 700; color: #2c2c2a; line-height: 1; letter-spacing: -0.02em; }
+  .score-ring-sub { font-size: 10px; color: #a8a6a1; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; font-weight: 600; }
+
+  .score-info { flex: 1; min-width: 220px; }
+  .score-breakdown {
+    display: flex; gap: 24px; margin-bottom: 14px;
+  }
+  .score-stat-value { font-size: 19px; font-weight: 700; color: #2c2c2a; letter-spacing: -0.01em; }
+  .score-stat-label {
+    font-size: 11px; color: #a8a6a1; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px;
+  }
+
+  .score-insights {
+    display: flex; flex-direction: column; gap: 7px;
+    padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.05);
+  }
+  .score-insight {
+    font-size: 13px; color: #5a5955; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .score-insight-icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .score-insight-icon.positive {
+    background: linear-gradient(135deg, #5DCAA5, #1D9E75);
+    box-shadow: 0 2px 6px rgba(29,158,117,0.3);
+  }
+  .score-insight-icon.suggestion {
+    background: linear-gradient(135deg, #F0997B, #D85A30);
+    box-shadow: 0 2px 6px rgba(216,90,48,0.3);
+  }
+  .score-insight-icon svg { width: 10px; height: 10px; }
+
+  @media print {
+    .score-card { display: none; }
+  }
+
 
   @media print {
     .resume-toolbar, .resume-ready-badge, .blob, .particle { display: none; }
@@ -444,6 +545,43 @@
   </div>
 
   <div class="resume-area">
+    <div class="score-card" id="score-card" style="display:none;">
+      <svg width="0" height="0" style="position:absolute;">
+        <defs>
+          <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#7F77DD"/>
+            <stop offset="50%" stop-color="#5DCAA5"/>
+            <stop offset="100%" stop-color="#F0997B"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div class="score-card-header">
+        <div class="score-badge">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" fill="#534AB7"/></svg>
+          Resume score
+        </div>
+        <div class="score-ai-label">AI analysis</div>
+      </div>
+
+      <div class="score-body">
+        <div class="score-ring-wrap">
+          <svg class="ring-svg" viewBox="0 0 108 108" width="108" height="108">
+            <circle class="score-ring-bg" cx="54" cy="54" r="46"/>
+            <circle class="score-ring-fg" id="score-ring-fg" cx="54" cy="54" r="46"
+                    stroke-dasharray="289" stroke-dashoffset="289"/>
+          </svg>
+          <div class="score-ring-label">
+            <div class="score-ring-number" id="score-number">--</div>
+            <div class="score-ring-sub">ATS match</div>
+          </div>
+        </div>
+        <div class="score-info">
+          <div class="score-breakdown" id="score-breakdown"></div>
+          <div class="score-insights" id="score-insights"></div>
+        </div>
+      </div>
+    </div>
     <div class="resume-sheet-wrap" id="resume-html"></div>
   </div>
 </div>
@@ -503,7 +641,61 @@ function showError(message, options) {
   }
 }
 
-function showResume(html) {
+function renderScore(score) {
+  if (!score || typeof score.overall !== 'number') return;
+
+  const overall = Math.max(0, Math.min(100, score.overall));
+  const circumference = 2 * Math.PI * 46; // r=46
+  const offset = circumference - (overall / 100) * circumference;
+
+  const ring = document.getElementById('score-ring-fg');
+  ring.setAttribute('stroke-dasharray', circumference.toFixed(2));
+  const numberEl = document.getElementById('score-number');
+  numberEl.textContent = overall;
+
+  // Animate the ring fill after a short delay so the transition is visible
+  setTimeout(() => {
+    ring.setAttribute('stroke-dashoffset', offset.toFixed(2));
+  }, 100);
+
+  const breakdownEl = document.getElementById('score-breakdown');
+  const metrics = [
+    { label: 'Keyword match', value: score.keyword_match },
+    { label: 'Formatting', value: score.formatting },
+    { label: 'Quantified', value: score.quantification }
+  ];
+  breakdownEl.innerHTML = metrics
+    .filter(m => typeof m.value === 'number')
+    .map(m => `
+      <div>
+        <div class="score-stat-value">${m.value}</div>
+        <div class="score-stat-label">${m.label}</div>
+      </div>
+    `).join('');
+
+  const insightsEl = document.getElementById('score-insights');
+  const insights = Array.isArray(score.insights) ? score.insights : [];
+
+  const checkIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>`;
+  const infoIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>`;
+
+  // Heuristic: insights starting with "Consider" are framed as suggestions
+  insightsEl.innerHTML = insights.map(text => {
+    const isSuggestion = /^consider/i.test(text.trim());
+    return `
+      <div class="score-insight">
+        <span class="score-insight-icon ${isSuggestion ? 'suggestion' : 'positive'}">
+          ${isSuggestion ? infoIcon : checkIcon}
+        </span>
+        <span>${text}</span>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('score-card').style.display = 'block';
+}
+
+function showResume(html, score) {
   clearInterval(stepInterval);
   steps.forEach(s => {
     s.el.classList.remove('active', 'pending');
@@ -516,6 +708,7 @@ function showResume(html) {
     loadingScreen.style.display = 'none';
     resumeContainer.style.display = 'block';
     document.getElementById('resume-html').innerHTML = html;
+    renderScore(score);
   }, 500);
 }
 
@@ -550,7 +743,7 @@ if (!resumeId) {
       .then(r => r.json())
       .then(data => {
         if (data.status === 'done') {
-          showResume(data.html);
+          showResume(data.html, data.score);
         } else if (data.status === 'error') {
           showError(data.error);
         } else if (data.status === 'not_found') {
