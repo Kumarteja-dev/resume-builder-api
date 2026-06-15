@@ -208,6 +208,9 @@ def reconstruct_scratch_payload(payload):
     if "education" not in payload or not payload["education"]:
         payload["education"] = education
 
+    print(f"[SCRATCH DEBUG] raw employment_json: {employment_json!r}")
+    print(f"[SCRATCH DEBUG] final employment array: {employment}")
+
     return payload
 
 
