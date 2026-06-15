@@ -140,10 +140,25 @@ def reconstruct_scratch_payload(payload):
         "location": payload.get("contact_location", "")
     }
 
+    # PRIMARY SOURCE: employment_json - a JSON string from the dynamic
+    # "Add job" HTML form (via Toolbox JavaScript-to-Bubble), containing
+    # an array of job objects with unlimited entries. Takes precedence
+    # over the older structured-array and flat-field formats below.
+    employment_json = payload.get("employment_json", "")
+    employment_from_json = None
+    if employment_json and isinstance(employment_json, str):
+        try:
+            parsed = json.loads(employment_json)
+            if isinstance(parsed, list):
+                employment_from_json = parsed
+        except (json.JSONDecodeError, ValueError):
+            employment_from_json = None
+
     # If Bubble already sent a structured employment array, clean it:
     # drop any job entries that are entirely empty (e.g. unused Job 2-4
     # slots the user left blank).
-    employment = payload.get("employment", [])
+    employment = employment_from_json if employment_from_json is not None \
+        else payload.get("employment", [])
     if isinstance(employment, list) and employment:
         cleaned_employment = []
         for job in employment:
